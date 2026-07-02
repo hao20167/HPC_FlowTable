@@ -1,6 +1,7 @@
 #include "worker.h"
 #include "config.h"
 #include "packet_ctx.h"
+#include "spi_engine.h"
 #include "traffic_types.h"
 
 #include <rte_ring.h>
@@ -22,13 +23,22 @@ int worker_main(void* arg) {
     for (unsigned int i = 0; i < n; i++) {
       struct rte_mbuf* mbuf = pkts[i];
       struct packet_ctx* ctx = packet_to_ctx(mbuf);
+      struct spi_rule* rule = spi_engine_match(&worker->spi, &ctx->key);
 
-      worker_stats_count(
-        worker,
-        ctx->type,
-        rte_pktmbuf_data_len(mbuf)
-      );
-      rte_pktmbuf_free(pkts[i]);
+      spi_action action = SPI_FORWARD;
+      if (rule != NULL) action = rule->action;
+
+      worker_stats_count(worker, ctx->type, rte_pktmbuf_data_len(mbuf));
+      if (action == SPI_DROP) {
+        worker->stats.forwarded--;
+        worker->stats.dropped++;
+        rte_pktmbuf_free(mbuf);
+        continue;
+      }
+
+      // TODO: action == SPI_COUNT / SPI_LOG
+
+      rte_pktmbuf_free(mbuf);
     }
   }
 
@@ -50,12 +60,13 @@ void worker_stats_count(struct worker_arg* worker, traffic_type type, uint32_t b
 void worker_stats_print(struct worker_arg* worker) {
   struct worker_stats* stats = &worker->stats;
   printf("===========\n");
-  printf("worker_id = %u\n", worker->worker_id);
+  printf("[worker_id %u\n]", worker->worker_id);
   printf("processed %" PRIu64 " bytes in %" PRIu64 " packets\n", stats->bytes, stats->packets);
   for (uint8_t i = 0; i < TRAFFIC_MAX; i++) {
     printf("> %s: %" PRIu64 "\n", traffic_type_str[i], stats->counters[i]);
   }
   printf("packets forwarded: %" PRIu64 "\n", stats->forwarded);
   printf("packets dropped: %" PRIu64 "\n", stats->dropped);
+  spi_engine_stats_print(&worker->spi);
   printf("===========\n");
 }

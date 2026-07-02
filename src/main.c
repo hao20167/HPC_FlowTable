@@ -18,12 +18,18 @@
 #include "demo.h"
 #include "config.h"
 #include "worker.h"
+#include "spi_engine.h"
 
 int main(int argc, char **argv) {
   int ret = rte_eal_init(argc, argv);
   if (ret < 0) {
     printf("EAL init failed\n");
     return 1;
+  }
+
+  struct spi_engine spi;
+  if (spi_engine_load(&spi, "rules.cfg") < 0) {
+    rte_exit(EXIT_FAILURE, "Cannot load rules.cfg\n");
   }
 
   struct rte_mempool *mbuf_pool = rte_pktmbuf_pool_create(
@@ -63,6 +69,7 @@ int main(int argc, char **argv) {
 
     workers[num_workers].worker_id = num_workers;
     workers[num_workers].ring = rings[num_workers];
+    memcpy(&workers[num_workers].spi, &spi, sizeof(spi));
     workers[num_workers].stop = &stop;
     memset(&workers[num_workers].stats, 0, sizeof(struct worker_stats));
 
@@ -114,6 +121,7 @@ int main(int argc, char **argv) {
     }
     struct packet_ctx* ctx = packet_to_ctx(mbuf);
     ctx->type = get_traffic_type_from_flow_key(&key);
+    ctx->key = key;
 
     struct flow_entry* entry = flow_table_lookup_or_create(
       &ft,

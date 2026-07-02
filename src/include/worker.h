@@ -1,6 +1,7 @@
 #ifndef WORKER_H
 #define WORKER_H
 
+#include "spi_engine.h"
 #include "traffic_types.h"
 
 #include <stdint.h>
@@ -18,6 +19,9 @@ struct worker_stats {
 struct worker_arg {
   unsigned int worker_id;
   struct rte_ring* ring;
+
+  struct spi_engine spi;
+
   volatile int* stop;
   struct worker_stats stats;
 };

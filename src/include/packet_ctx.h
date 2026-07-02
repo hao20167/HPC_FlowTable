@@ -1,11 +1,13 @@
 #ifndef PACKET_CTX_H
 #define PACKET_CTX_H
 
+#include "flow_table.h"
 #include "traffic_types.h"
 
 #include <rte_mbuf.h>
 
 struct packet_ctx {
+  struct flow_key key;
   traffic_type type;
 };
 
