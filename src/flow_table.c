@@ -6,7 +6,7 @@
 
 #include <stdlib.h>
 
-int flow_table_init(struct flow_table* ft, uint32_t capacity) {
+void flow_table_init(struct flow_table* ft, uint32_t capacity) {
   struct rte_hash_parameters params = {
     .name = "flow_hash",
     .entries = capacity,
@@ -19,20 +19,18 @@ int flow_table_init(struct flow_table* ft, uint32_t capacity) {
   ft->hash = rte_hash_create(&params);
   if (ft->hash == NULL) {
     fprintf(stderr, "Failed to initialize rte_hash\n");
-    return -1;
+    rte_exit(EXIT_FAILURE, "Failed to initialize flow_table\n");
   }
 
   // this, initializes in the `hugepages` area
   ft->entries = rte_zmalloc("flow_entries", sizeof(struct flow_entry) * capacity, 64);
   if (ft->entries == NULL) {
     fprintf(stderr, "Failed to initialize flow_entry\n");
-    return -1;
+    rte_exit(EXIT_FAILURE, "Failed to initialize flow_table\n");
   }
 
   ft->capacity = capacity;
   ft->used = 0;
-
-  return 0;
 }
 
 void flow_table_free(struct flow_table* ft) {

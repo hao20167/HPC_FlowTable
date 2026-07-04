@@ -14,7 +14,7 @@ struct flow_key {
   // 13 bytes
   uint8_t _padding[3]; // TODO: can this be optimized?
   // ensure all the values are being set to 0
-};
+}; // WARN: consider using `__attribute__((__packed__));`
 
 struct flow_entry {
   struct flow_key key;
@@ -39,7 +39,7 @@ struct flow_table {
   uint64_t lookup_misses;
 };
 
-int flow_table_init(struct flow_table* ft, uint32_t capacity);
+void flow_table_init(struct flow_table* ft, uint32_t capacity);
 void flow_table_free(struct flow_table* ft);
 struct flow_entry* flow_table_lookup_or_create(
   struct flow_table* ft,
