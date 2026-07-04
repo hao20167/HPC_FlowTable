@@ -49,11 +49,7 @@ void pcap_init(uint16_t port_id, struct rte_mempool* mbuf_pool) {
   printf("Port %u started\n", port_id);
 }
 
-void pcap_replay(struct rte_mempool* mbuf_pool, struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers, volatile int* stop) {
-  // WARN: temporary variables, please CHANGEEEEEEEEE
-  uint16_t port_id = 0;
-  // WARN: SDAOFIJSDIFOISDJFOISDFIOSDJFIOD
-
+void pcap_replay(uint16_t port_id, struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers, volatile int* stop) {
   uint64_t last_age = 0, timeout_cycles = rte_get_tsc_hz() * FLOW_TIME_LIMIT;
   uint64_t processed = 0;
 

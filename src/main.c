@@ -28,7 +28,7 @@ struct flow_table ft = {0};
 
   // ============================== start main ==============================
   uint64_t dropped = 0;
-  pcap_replay(mbuf_pool, &ft, workers, num_workers, &stop);
+  pcap_replay(port_id, &ft, workers, num_workers, &stop);
   // =============================== end main ===============================
 
   stats_print(&ft, workers, num_workers);
