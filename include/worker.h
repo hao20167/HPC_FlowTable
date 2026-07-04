@@ -1,8 +1,8 @@
 #ifndef WORKER_H
 #define WORKER_H
 
-#include "spi_engine.h"
-#include "traffic_types.h"
+#include "spi.h"
+#include "traffics.h"
 
 #include <stdint.h>
 

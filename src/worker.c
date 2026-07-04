@@ -1,8 +1,8 @@
 #include "worker.h"
 #include "config.h"
 #include "packet_ctx.h"
-#include "spi_engine.h"
-#include "traffic_types.h"
+#include "spi.h"
+#include "traffics.h"
 
 #include <stdlib.h>
 

@@ -19,4 +19,7 @@
 
 #define RING_SIZE 4096
 
+#define RX_RING_SIZE 1024
+
+
 #endif

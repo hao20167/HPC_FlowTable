@@ -1,5 +1,5 @@
-#ifndef SPI_ENGINE_H
-#define SPI_ENGINE_H
+#ifndef SPI_H
+#define SPI_H
 
 #include "flow_table.h"
 #include "config.h"
