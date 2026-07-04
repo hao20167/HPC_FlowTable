@@ -174,6 +174,12 @@ struct spi_rule* spi_engine_match(struct spi_engine* engine, const struct flow_k
   return NULL;
 }
 
+void spi_engine_init(struct spi_engine *spi) {
+  if (spi_engine_load(spi, SPI_RULE_PATH) < 0) {
+    rte_exit(EXIT_FAILURE, "Cannot load " SPI_RULE_PATH "\n");
+  }
+}
+
 void spi_engine_stats_print(const struct spi_engine* engine) {
   printf("\n=== SPI Rule Hits ===\n");
   for (size_t i = 0; i < engine->num_rule; i++) {

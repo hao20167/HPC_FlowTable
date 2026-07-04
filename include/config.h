@@ -15,6 +15,7 @@
 
 #define SPI_RULE_NAME_LEN 16
 #define SPI_RULE_LEN 128
+#define SPI_RULE_PATH "rules.cfg"
 
 #define RING_SIZE 4096
 

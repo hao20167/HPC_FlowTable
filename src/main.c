@@ -19,6 +19,10 @@
 #include "config.h"
 #include "worker.h"
 #include "spi_engine.h"
+#include "stats.h"
+
+void mempool_init(struct rte_mempool *mbuf_pool);
+void run_pcap_replay(struct rte_mempool* mbuf_pool, struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers, volatile int* stop);
 
 int main(int argc, char **argv) {
   int ret = rte_eal_init(argc, argv);
@@ -28,11 +32,35 @@ int main(int argc, char **argv) {
   }
 
   struct spi_engine spi;
-  if (spi_engine_load(&spi, "rules.cfg") < 0) {
-    rte_exit(EXIT_FAILURE, "Cannot load rules.cfg\n");
-  }
+  spi_engine_init(&spi);
 
-  struct rte_mempool *mbuf_pool = rte_pktmbuf_pool_create(
+  struct rte_mempool *mbuf_pool;
+  mempool_init(mbuf_pool);
+
+  struct worker_arg workers[MAX_WORKERS];
+  volatile int stop = 0;
+  unsigned int num_workers = workers_init(workers, &spi, &stop);
+
+  struct flow_table ft = {0};
+  flow_table_init(&ft, FLOW_TABLE_CAP);
+
+
+  // start main
+  uint64_t dropped = 0;
+  run_pcap_replay(mbuf_pool, &ft, workers, num_workers, &stop);
+  // end main
+
+  stats_print(&ft, workers, num_workers);
+
+  flow_table_free(&ft);
+  rte_eal_cleanup();
+
+  return 0;
+}
+
+
+void mempool_init(struct rte_mempool *mbuf_pool) {
+  mbuf_pool = rte_pktmbuf_pool_create(
     "MBUF_POOL",
     NUM_MBUFS,
     MBUF_CACHE_SIZE, 
@@ -44,57 +72,10 @@ int main(int argc, char **argv) {
   if (mbuf_pool == NULL) {
     rte_exit(EXIT_FAILURE, "Failed to create mbuf pool\n");
   }
+}
 
-  struct rte_ring* rings[MAX_WORKERS];
-  struct worker_arg workers[MAX_WORKERS];
-
-  volatile int stop = 0;
-  unsigned int lcore_id, num_workers = 0;
-
-  RTE_LCORE_FOREACH_WORKER(lcore_id) {
-    if (num_workers >= MAX_WORKERS) break;
-
-    char ring_name[32];
-    snprintf(ring_name, 32, "worker_ring_%u", num_workers);
-
-    rings[num_workers] = rte_ring_create(
-      ring_name,
-      RING_SIZE,
-      rte_socket_id(),
-      RING_F_SP_ENQ | RING_F_SC_DEQ
-    );
-    if (rings[num_workers] == NULL) {
-      rte_exit(EXIT_FAILURE, "Failed to create %s", ring_name);
-    }
-
-    workers[num_workers].worker_id = num_workers;
-    workers[num_workers].ring = rings[num_workers];
-    memcpy(&workers[num_workers].spi, &spi, sizeof(spi));
-    workers[num_workers].stop = &stop;
-    memset(&workers[num_workers].stats, 0, sizeof(struct worker_stats));
-
-    // send message to worker lcore to wake it up (WAIT (from init) -> RUNNING)
-    rte_eal_remote_launch(worker_main, &workers[num_workers], lcore_id);
-
-    num_workers++;
-  }
-
-  if (num_workers == 0) {
-    rte_exit(EXIT_FAILURE, "Failed to run, need at least 1 worker lcore\n");
-  }
-
-  printf("Dispatcher running on lcore: %u\n", rte_lcore_id());
-  printf("Workers: %u\n", num_workers);
-
-  struct flow_table ft = {0};
-  ret = flow_table_init(&ft, FLOW_TABLE_CAP);
-  if (ret < 0) {
-    rte_exit(EXIT_FAILURE, "Failed to initialize flow_table\n");
-  }
-
+void run_pcap_replay(struct rte_mempool* mbuf_pool, struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers, volatile int* stop) {
   uint64_t last_age = 0, timeout_cycles = rte_get_tsc_hz() * FLOW_TIME_LIMIT;
-  uint64_t dropped = 0;
-
   for (uint64_t i = 0; i < NUM_PACKETS; i++) {
     struct rte_mbuf* mbuf = rte_pktmbuf_alloc(mbuf_pool);
     if (mbuf == NULL) { // couldnt alloc = failed to receive that mbuf packet
@@ -112,10 +93,6 @@ int main(int argc, char **argv) {
     parse_result ret = packet_to_flow_key(mbuf, &key);
     if (ret != PARSE_OK) {
       rte_pktmbuf_free(mbuf);
-      if (dropped % 5000 == 0) {
-        fprintf(stderr, "packet_to_flow_key\n");
-        fprintf(stderr, "%s\n", parse_result_str[ret]);
-      }
       dropped++;
       continue;
     }
@@ -124,7 +101,7 @@ int main(int argc, char **argv) {
     ctx->key = key;
 
     struct flow_entry* entry = flow_table_lookup_or_create(
-      &ft,
+      ft,
       &key,
       num_workers,
       rte_get_tsc_cycles()
@@ -136,7 +113,7 @@ int main(int argc, char **argv) {
     }
 
     unsigned int worker_id = entry->worker_id;
-    if (rte_ring_enqueue(workers[worker_id].ring, mbuf) < 0) {
+    if (rte_ring_enqueue(&workers[worker_id].ring, mbuf) < 0) {
       rte_pktmbuf_free(mbuf);
       dropped++;
       continue;
@@ -148,44 +125,18 @@ int main(int argc, char **argv) {
       if (last_age - now < timeout_cycles) continue;
       last_age = now;
 
-      uint64_t aged_flows = flow_table_age(&ft, now, timeout_cycles);
+      uint64_t aged_flows = flow_table_age(ft, now, timeout_cycles);
       if (aged_flows == 0) continue;
       printf("Aged out %" PRIu64 " flows!\n");
     }
   }
 
-  stop = 1;
+  *stop = 1;
   rte_eal_mp_wait_lcore();
 
   {
-    uint64_t aged_flows = flow_table_age(&ft, rte_get_tsc_cycles(), timeout_cycles);
+    uint64_t aged_flows = flow_table_age(ft, rte_get_tsc_cycles(), timeout_cycles);
     if (aged_flows != 0) printf("Aged out %" PRIu64 " flows!\n");
   }
-
-  uint64_t total = 0;
-  for (unsigned int i = 0; i < num_workers; i++) {
-    total += workers[i].stats.packets;
-  }
-
-  printf("=====================\n");
-  printf("packets dispatched: %u\n", NUM_PACKETS);
-  printf("packets processed: %" PRIu64 "\n", total);
-  printf("packets dropped: %" PRIu64 "\n", dropped);
-  printf("=====================\n");
-  printf("num_workers: %u\n", num_workers);
-  printf("FLOW TABLE ==========\n");
-  printf("used = %u/%u\n", ft.used, ft.capacity);
-  printf("flows created: %" PRIu64 "\n", ft.created_flows);
-  printf("flows deleted: %" PRIu64 "\n", ft.deleted_flows);
-  printf("flows timeout: %" PRIu64 "\n", ft.timeout_flows);
-  printf("lookup_hits: %" PRIu64 "\n", ft.lookup_hits);
-  printf("lookup_misses: %" PRIu64 "\n", ft.lookup_misses);
-  printf("=====================\n");
-
-  for (unsigned int i = 0; i < num_workers; i++) {
-    worker_stats_print(&workers[i]);
-  }
-
-  flow_table_free(&ft);
-  rte_eal_cleanup();
 }
+

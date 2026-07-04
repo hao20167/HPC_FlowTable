@@ -6,6 +6,8 @@
 
 #include <stdint.h>
 
+#include <rte_ring.h>
+
 struct worker_stats {
   uint64_t packets;
   uint64_t bytes;
@@ -18,15 +20,15 @@ struct worker_stats {
 
 struct worker_arg {
   unsigned int worker_id;
-  struct rte_ring* ring;
-
+  struct rte_ring ring;
   struct spi_engine spi;
-
   volatile int* stop;
   struct worker_stats stats;
 };
 
 int worker_main(void* arg);
+void worker_ring_init(struct rte_ring* ring, unsigned int num_workers);
+unsigned int workers_init(struct worker_arg workers[], struct spi_engine* spi, volatile int *stop);
 void worker_stats_count(struct worker_arg* worker, traffic_type type, uint32_t bytes);
 void worker_stats_print(struct worker_arg* worker);
 

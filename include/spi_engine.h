@@ -45,6 +45,7 @@ struct spi_engine {
 
 int spi_engine_load(struct spi_engine* engine, const char* path);
 struct spi_rule* spi_engine_match(struct spi_engine* engine, const struct flow_key* key);
+void spi_engine_init(struct spi_engine *spi);
 void spi_engine_stats_print(const struct spi_engine* engine);
 
 #endif

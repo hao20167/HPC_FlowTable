@@ -4,6 +4,8 @@
 #include "spi_engine.h"
 #include "traffic_types.h"
 
+#include <stdlib.h>
+
 #include <rte_ring.h>
 #include <rte_mbuf.h>
 
@@ -11,8 +13,8 @@ int worker_main(void* arg) {
   struct worker_arg* worker = arg;
   struct rte_mbuf* pkts[BURST_SIZE];
 
-  while (!*(worker->stop) || !rte_ring_empty(worker->ring)) {
-    unsigned int n = rte_ring_dequeue_burst(worker->ring, (void**)pkts, BURST_SIZE, NULL);
+  while (!*(worker->stop) || !rte_ring_empty(&worker->ring)) {
+    unsigned int n = rte_ring_dequeue_burst(&worker->ring, (void**)pkts, BURST_SIZE, NULL);
     if (n == 0) {
       // assuming that pausing for a short while wouldnt affect 
       // performance, will have to try both (to keep or to remove this) 
@@ -47,6 +49,47 @@ int worker_main(void* arg) {
   return 0;
 }
 
+void worker_ring_init(struct rte_ring* ring, unsigned int num_workers) {
+  char ring_name[32];
+  snprintf(ring_name, 32, "worker_ring_%u", num_workers);
+  ring = rte_ring_create(
+    ring_name,
+    RING_SIZE,
+    rte_socket_id(),
+    RING_F_SP_ENQ | RING_F_SC_DEQ
+  );
+  if (ring == NULL) {
+    rte_exit(EXIT_FAILURE, "Failed to create %s", ring_name);
+  }
+}
+
+unsigned int workers_init(struct worker_arg workers[], struct spi_engine* spi, volatile int *stop) {
+  unsigned int lcore_id, num_workers = 0;
+  RTE_LCORE_FOREACH_WORKER(lcore_id) {
+    if (num_workers >= MAX_WORKERS) break;
+
+    // initialize worker_arg
+    workers[num_workers].worker_id = num_workers;
+    worker_ring_init(&workers[num_workers].ring, num_workers);
+    memcpy(&workers[num_workers].spi, spi, sizeof(struct spi_engine));
+    workers[num_workers].stop = stop;
+    memset(&workers[num_workers].stats, 0, sizeof(struct worker_stats));
+
+    // send message to worker lcore to wake it up (WAIT (from init) -> RUNNING)
+    rte_eal_remote_launch(worker_main, &workers[num_workers], lcore_id);
+
+    num_workers++;
+  }
+
+  if (num_workers == 0) {
+    rte_exit(EXIT_FAILURE, "Failed to run, need at least 1 worker lcore\n");
+  }
+
+  printf("Dispatcher running on lcore: %u\n", rte_lcore_id());
+  printf("Workers: %u\n", num_workers);
+
+  return num_workers;
+}
 
 void worker_stats_count(struct worker_arg* worker, traffic_type type, uint32_t bytes) {
   struct worker_stats* stats = &worker->stats;
