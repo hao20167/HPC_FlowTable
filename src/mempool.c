@@ -8,8 +8,8 @@
 void mempool_init(struct rte_mempool *mbuf_pool) {
   mbuf_pool = rte_pktmbuf_pool_create(
     "MBUF_POOL",
-    NUM_MBUFS,
-    MBUF_CACHE_SIZE, 
+    POOL_NUM_MBUFS,
+    POOL_CACHE_SIZE, 
     PACKET_CTX_SIZE,
     RTE_MBUF_DEFAULT_BUF_SIZE,
     rte_socket_id()

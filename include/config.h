@@ -6,12 +6,12 @@
 #define FLOW_TIME_LIMIT 5
 
 #define NUM_PACKETS 10000
-#define BURST_SIZE 32
+#define WORKER_RING_BURST_SIZE 32
 
 #define MAX_WORKERS 4
 // according to dpdk docs, num of objects in a mempool should be 2^n-1
-#define NUM_MBUFS 8191
-#define MBUF_CACHE_SIZE 256
+#define POOL_NUM_MBUFS 8191
+#define POOL_CACHE_SIZE 256
 
 #define SPI_RULE_NAME_LEN 16
 #define SPI_RULE_LEN 128
@@ -20,6 +20,7 @@
 #define RING_SIZE 4096
 
 #define RX_RING_SIZE 1024
-
+#define RX_BURST_SIZE 32
+#define RX_MAX_EMPTY_POLLS 512
 
 #endif

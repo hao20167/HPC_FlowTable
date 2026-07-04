@@ -11,10 +11,10 @@
 
 int worker_main(void* arg) {
   struct worker_arg* worker = arg;
-  struct rte_mbuf* pkts[BURST_SIZE];
+  struct rte_mbuf* pkts[WORKER_RING_BURST_SIZE];
 
   while (!*(worker->stop) || !rte_ring_empty(&worker->ring)) {
-    unsigned int n = rte_ring_dequeue_burst(&worker->ring, (void**)pkts, BURST_SIZE, NULL);
+    unsigned int n = rte_ring_dequeue_burst(&worker->ring, (void**)pkts, WORKER_RING_BURST_SIZE, NULL);
     if (n == 0) {
       // assuming that pausing for a short while wouldnt affect 
       // performance, will have to try both (to keep or to remove this) 
