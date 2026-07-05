@@ -4,6 +4,7 @@
 #include "spi.h"
 #include "traffics.h"
 
+#include <signal.h>
 #include <stdlib.h>
 
 #include <rte_ring.h>
@@ -63,7 +64,7 @@ void worker_ring_init(struct rte_ring** ring, unsigned int num_workers) {
   }
 }
 
-unsigned int workers_init(struct worker_arg workers[], struct spi_engine* spi, volatile int *stop) {
+unsigned int workers_init(struct worker_arg workers[], struct spi_engine* spi, volatile sig_atomic_t *stop) {
   unsigned int lcore_id, num_workers = 0;
   RTE_LCORE_FOREACH_WORKER(lcore_id) {
     if (num_workers >= MAX_WORKERS) break;
@@ -104,7 +105,7 @@ void worker_stats_count(struct worker_arg* worker, traffic_type type, uint32_t b
 void worker_stats_print(struct worker_arg* worker) {
   struct worker_stats* stats = &worker->stats;
   printf("===========\n");
-  printf("[worker_id %u\n]", worker->worker_id);
+  printf("[worker_id %u]\n", worker->worker_id);
   printf("processed %" PRIu64 " bytes in %" PRIu64 " packets\n", stats->bytes, stats->packets);
   for (uint8_t i = 0; i < TRAFFIC_MAX; i++) {
     printf("> %s: %" PRIu64 "\n", traffic_type_str[i], stats->counters[i]);

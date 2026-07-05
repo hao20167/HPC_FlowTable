@@ -13,7 +13,7 @@
 #define POOL_NUM_MBUFS 8191
 #define POOL_CACHE_SIZE 256
 
-// change USE_SPI_RULE to 1 to turn it on
+// change this to 1 to turn spi rule on
 #define SPI_ENGINE_STATUS 0
 #define SPI_RULE_NAME_LEN 16
 #define SPI_RULE_LEN 128
@@ -22,6 +22,7 @@
 #define RING_SIZE 4096
 
 #define RX_RING_SIZE 1024
+// change this to 64 wont help
 #define RX_BURST_SIZE 32
 #define RX_MAX_EMPTY_POLLS 512
 

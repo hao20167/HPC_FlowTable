@@ -9,6 +9,7 @@
 #include "packet_ctx.h"
 #include "traffics.h"
 
+#include <signal.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -49,13 +50,13 @@ void pcap_init(uint16_t port_id, struct rte_mempool* mbuf_pool) {
   printf("Port %u started\n", port_id);
 }
 
-void pcap_replay(uint16_t port_id, struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers, volatile int* stop) {
+void pcap_replay(uint16_t port_id, struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers, volatile sig_atomic_t* stop) {
   uint64_t last_age = 0, timeout_cycles = rte_get_tsc_hz() * FLOW_TIME_LIMIT;
 
   struct rte_mbuf* pkts[RX_BURST_SIZE];
   uint32_t empty_polls = 0;
 
-  while (empty_polls < RX_MAX_EMPTY_POLLS) {
+  while (!*stop && empty_polls < RX_MAX_EMPTY_POLLS) {
     // [1] burst get from RX
     uint16_t n = rte_eth_rx_burst(
       port_id,

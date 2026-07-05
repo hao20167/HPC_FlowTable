@@ -4,9 +4,29 @@
 #include "stats.h"
 
 #include <pthread.h>
+#include <signal.h>
 #include <stdlib.h>
 
+static volatile sig_atomic_t stop = 0;
+
+static void handle_signal(int signum) {
+  (void)signum;
+  stop = 1;
+}
+
+static void install_signal_handler() {
+  struct sigaction sa = {0};
+  sa.sa_handler = handle_signal;
+  sigemptyset(&sa.sa_mask);
+  if (sigaction(SIGINT, &sa, NULL) != 0 || sigaction(SIGTERM, &sa, NULL) != 0) {
+    fprintf(stderr, "Failed to install signal handler\n");
+    exit(0);
+  }
+}
+
 int main(int argc, char **argv) {
+  install_signal_handler();
+
   int ret = rte_eal_init(argc, argv);
   if (ret < 0) {
     printf("EAL init failed\n");
@@ -27,7 +47,6 @@ int main(int argc, char **argv) {
   pcap_init(port_id, mbuf_pool);
 
   struct worker_arg workers[MAX_WORKERS];
-  volatile int stop = 0;
   unsigned int num_workers = workers_init(workers, &spi, &stop);
 
   struct flow_table ft = {0};

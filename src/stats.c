@@ -2,6 +2,7 @@
 #include "flow_table.h"
 #include "worker.h"
 
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -26,7 +27,7 @@ static void collect_worker_stats(struct worker_arg workers[], unsigned int num_w
   }
 }
 
-static void print_realtime(struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers, volatile int* stop) {
+static void print_realtime(struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers, volatile sig_atomic_t* stop) {
   uint64_t prev_packets = 0;
   uint64_t prev_bytes = 0;
 
