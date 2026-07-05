@@ -38,6 +38,7 @@ int worker_main(void* arg) {
         continue;
       }
 
+      worker->stats.forwarded++;
       // TODO: action == SPI_COUNT / SPI_LOG
 
       rte_pktmbuf_free(mbuf);
@@ -97,7 +98,6 @@ void worker_stats_count(struct worker_arg* worker, traffic_type type, uint32_t b
   stats->packets++;
   stats->bytes += bytes;
   stats->counters[type]++;
-  stats->forwarded++;
 }
 
 void worker_stats_print(struct worker_arg* worker) {

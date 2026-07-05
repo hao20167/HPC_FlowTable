@@ -4,6 +4,7 @@
 #include "stats.h"
 
 #include <pthread.h>
+#include <stdlib.h>
 
 int main(int argc, char **argv) {
   int ret = rte_eal_init(argc, argv);
@@ -34,7 +35,9 @@ int main(int argc, char **argv) {
   pthread_t stats_thread;
   struct stats_arg arg = {&ft, workers, num_workers, &stop};
   // tends to affect nothing at all
-  pthread_create(&stats_thread, NULL, stats_thread_main, &arg);
+  if (pthread_create(&stats_thread, NULL, stats_thread_main, &arg) != 0) {
+    rte_exit(EXIT_FAILURE, "Realtime stats thread creation failed\n");
+  }
 
   pcap_replay(port_id, &ft, workers, num_workers, &stop);
 

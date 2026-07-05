@@ -34,7 +34,7 @@ void flow_table_init(struct flow_table* ft, uint32_t capacity) {
 }
 
 void flow_table_free(struct flow_table* ft) {
-  if (ft->hash != NULL) rte_free(ft->hash);
+  if (ft->hash != NULL) rte_hash_free(ft->hash);
   if (ft->entries != NULL) rte_free(ft->entries);
   memset(ft, 0, sizeof(*ft));
 }
@@ -58,7 +58,7 @@ struct flow_entry* flow_table_lookup_or_create(
   ft->lookup_misses++;
 
   if (ft->used >= ft->capacity) return NULL;
-  struct flow_entry* entry = &ft->entries[ft->used++];
+  struct flow_entry* entry = &ft->entries[ft->used];
 
   entry->key = *key;
   // FIX: maybe, assign to the least average used worker (in a specific time)
@@ -71,7 +71,9 @@ struct flow_entry* flow_table_lookup_or_create(
 
   ret = rte_hash_add_key_data(ft->hash, key, entry);
   if (ret < 0) return NULL;
+  // TODO: clear above failed entry?
 
+  ft->used++;
   ft->active_flows++;
   ft->created_flows++;
   
