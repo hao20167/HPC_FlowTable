@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS = -I./include $(shell pkg-config --cflags libdpdk)
-LDFLAGS = $(shell pkg-config --libs libdpdk)
+CFLAGS = -I./include $(shell pkg-config --cflags libdpdk) -pthread
+LDFLAGS = $(shell pkg-config --libs libdpdk) -pthread
 
 TARGET = bin/main
 SRC = $(wildcard src/*.c)

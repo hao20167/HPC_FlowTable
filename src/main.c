@@ -1,7 +1,9 @@
 #include "mempool.h"
-#include "spi.h"
 #include "pcap.h"
+#include "spi.h"
 #include "stats.h"
+
+#include <pthread.h>
 
 int main(int argc, char **argv) {
   int ret = rte_eal_init(argc, argv);
@@ -27,9 +29,18 @@ int main(int argc, char **argv) {
   struct flow_table ft = {0};
   flow_table_init(&ft, FLOW_TABLE_CAP);
 
+  // ========================================================================
   // ============================== start main ==============================
+  pthread_t stats_thread;
+  struct stats_arg arg = {&ft, workers, num_workers, &stop};
+  // tends to affect nothing at all
+  pthread_create(&stats_thread, NULL, stats_thread_main, &arg);
+
   pcap_replay(port_id, &ft, workers, num_workers, &stop);
+
+  pthread_join(stats_thread, NULL);
   // =============================== end main ===============================
+  // ========================================================================
 
   stats_print(&ft, workers, num_workers);
 
@@ -38,4 +49,3 @@ int main(int argc, char **argv) {
 
   return 0;
 }
-
