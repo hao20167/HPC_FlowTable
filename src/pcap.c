@@ -102,7 +102,7 @@ void pcap_replay(uint16_t port_id, struct flow_table* ft, struct worker_arg work
       ctx->key = key;
 
       unsigned int worker_id = entry->worker_id;
-      if (rte_ring_enqueue(&workers[worker_id].ring, mbuf) < 0) {
+      if (rte_ring_enqueue(workers[worker_id].ring, mbuf) < 0) {
         rte_pktmbuf_free(mbuf);
         dropped++;
         continue;

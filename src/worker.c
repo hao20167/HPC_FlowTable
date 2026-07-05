@@ -13,8 +13,8 @@ int worker_main(void* arg) {
   struct worker_arg* worker = arg;
   struct rte_mbuf* pkts[WORKER_RING_BURST_SIZE];
 
-  while (!*(worker->stop) || !rte_ring_empty(&worker->ring)) {
-    unsigned int n = rte_ring_dequeue_burst(&worker->ring, (void**)pkts, WORKER_RING_BURST_SIZE, NULL);
+  while (!*(worker->stop) || !rte_ring_empty(worker->ring)) {
+    unsigned int n = rte_ring_dequeue_burst(worker->ring, (void**)pkts, WORKER_RING_BURST_SIZE, NULL);
     if (n == 0) {
       // assuming that pausing for a short while wouldnt affect 
       // performance, will have to try both (to keep or to remove this) 
@@ -49,16 +49,16 @@ int worker_main(void* arg) {
   return 0;
 }
 
-void worker_ring_init(struct rte_ring* ring, unsigned int num_workers) {
+void worker_ring_init(struct rte_ring** ring, unsigned int num_workers) {
   char ring_name[32];
   snprintf(ring_name, 32, "worker_ring_%u", num_workers);
-  ring = rte_ring_create(
+  *ring = rte_ring_create(
     ring_name,
     RING_SIZE,
     rte_socket_id(),
     RING_F_SP_ENQ | RING_F_SC_DEQ
   );
-  if (ring == NULL) {
+  if (*ring == NULL) {
     rte_exit(EXIT_FAILURE, "Failed to create %s", ring_name);
   }
 }

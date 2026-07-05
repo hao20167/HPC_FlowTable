@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
 
   // FIX: what if each lcore has their own mpool?
   struct rte_mempool *mbuf_pool;
-  mempool_init(mbuf_pool);
+  mempool_init(&mbuf_pool);
 
   uint16_t port_id = 0;
   pcap_init(port_id, mbuf_pool);
@@ -28,7 +28,6 @@ int main(int argc, char **argv) {
   flow_table_init(&ft, FLOW_TABLE_CAP);
 
   // ============================== start main ==============================
-  uint64_t dropped = 0;
   pcap_replay(port_id, &ft, workers, num_workers, &stop);
   // =============================== end main ===============================
 

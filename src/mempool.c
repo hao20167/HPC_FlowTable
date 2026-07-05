@@ -5,8 +5,8 @@
 #include <rte_mempool.h>
 #include <stdlib.h>
 
-void mempool_init(struct rte_mempool *mbuf_pool) {
-  mbuf_pool = rte_pktmbuf_pool_create(
+void mempool_init(struct rte_mempool **mbuf_pool) {
+  *mbuf_pool = rte_pktmbuf_pool_create(
     "MBUF_POOL",
     POOL_NUM_MBUFS,
     POOL_CACHE_SIZE, 
@@ -15,7 +15,7 @@ void mempool_init(struct rte_mempool *mbuf_pool) {
     rte_socket_id()
   );
 
-  if (mbuf_pool == NULL) {
+  if (*mbuf_pool == NULL) {
     rte_exit(EXIT_FAILURE, "Failed to create mbuf pool\n");
   }
 }
