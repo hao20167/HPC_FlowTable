@@ -17,6 +17,9 @@ int main(int argc, char **argv) {
   spi_engine_init(&spi);
 
   // FIX: what if each lcore has their own mpool?
+  // -> NO, mpool is only used by rx to push the packet into
+  // -> if there is 1 mpool per lcore, it will have to move the packet
+  // from rx pool to lcore pool, which downgrades performance
   struct rte_mempool *mbuf_pool;
   mempool_init(&mbuf_pool);
 

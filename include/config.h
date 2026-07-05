@@ -13,6 +13,8 @@
 #define POOL_NUM_MBUFS 8191
 #define POOL_CACHE_SIZE 256
 
+// change USE_SPI_RULE to 1 to turn it on
+#define SPI_ENGINE_STATUS 0
 #define SPI_RULE_NAME_LEN 16
 #define SPI_RULE_LEN 128
 #define SPI_RULE_PATH "rules.cfg"
