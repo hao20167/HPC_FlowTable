@@ -12,7 +12,7 @@ struct flow_key {
   uint16_t dst_port;
   uint8_t protocol;
   // 13 bytes
-  uint8_t _padding[3]; // TODO: can this be optimized?
+  uint8_t _padding[3]; // FIX: can this be optimized?
   // ensure all the values are being set to 0
 }; // WARN: consider using `__attribute__((__packed__));`
 

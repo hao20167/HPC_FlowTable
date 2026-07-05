@@ -2,7 +2,7 @@
 #define PACKET_CTX_H
 
 #include "flow_table.h"
-#include "traffic_types.h"
+#include "traffics.h"
 
 #include <rte_mbuf.h>
 
