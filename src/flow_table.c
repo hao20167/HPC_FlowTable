@@ -95,6 +95,7 @@ uint64_t flow_table_age(struct flow_table* ft, uint64_t now, uint64_t timeout_cy
   if (aged_flows) {
     ft->deleted_flows += aged_flows;
     ft->timeout_flows += aged_flows;
+    ft->active_flows -= aged_flows;
   }
 
   return aged_flows;

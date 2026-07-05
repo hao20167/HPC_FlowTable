@@ -117,6 +117,8 @@ void pcap_replay(uint16_t port_id, struct flow_table* ft, struct worker_arg work
       if (aged_flows == 0) continue;
       printf("Aged out %" PRIu64 " flows!\n");
     }
+
+    processed += n;
   }
 
   *stop = 1;
