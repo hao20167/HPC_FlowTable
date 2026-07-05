@@ -61,7 +61,9 @@ struct flow_entry* flow_table_lookup_or_create(
   struct flow_entry* entry = &ft->entries[ft->used++];
 
   entry->key = *key;
-  entry->worker_id = key->src_ip % num_workers; // WARN: modify this pls
+  // FIX: maybe, assign to the least average used worker (in a specific time)
+  // and this may cause a notable performance downgrade
+  entry->worker_id = key->src_ip % num_workers;
   entry->in_use = 1;
   entry->create_time = now;
   entry->last_seen = now;

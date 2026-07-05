@@ -12,5 +12,4 @@ clean:
 	rm -rf $(TARGET)
 
 run: clean all
-	sudo ./$(TARGET) -l 0-4 --vdev 'net_pcap0,rx_pcap=/test/traffic.pcap' --no-pci
-
+	sudo ./$(TARGET) -l 0-4 --vdev 'net_pcap0,rx_pcap=/tests/traffic.pcap,infinite_rx=1' --no-pci

@@ -1,5 +1,6 @@
 /notes/
 /bin/
+/tests/
 .codegraph/
 
 .DS_Store

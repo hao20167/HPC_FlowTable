@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
   struct spi_engine spi;
   spi_engine_init(&spi);
 
-  // TODO: what if each lcore has their own mpool?
+  // FIX: what if each lcore has their own mpool?
   struct rte_mempool *mbuf_pool;
   mempool_init(mbuf_pool);
 
@@ -23,7 +23,8 @@ int main(int argc, char **argv) {
   struct worker_arg workers[MAX_WORKERS];
   volatile int stop = 0;
   unsigned int num_workers = workers_init(workers, &spi, &stop);
-struct flow_table ft = {0};
+
+  struct flow_table ft = {0};
   flow_table_init(&ft, FLOW_TABLE_CAP);
 
   // ============================== start main ==============================
