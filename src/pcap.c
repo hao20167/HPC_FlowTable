@@ -51,7 +51,6 @@ void pcap_init(uint16_t port_id, struct rte_mempool* mbuf_pool) {
 
 void pcap_replay(uint16_t port_id, struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers, volatile int* stop) {
   uint64_t last_age = 0, timeout_cycles = rte_get_tsc_hz() * FLOW_TIME_LIMIT;
-  uint64_t processed = 0;
 
   struct rte_mbuf* pkts[RX_BURST_SIZE];
   uint32_t empty_polls = 0;

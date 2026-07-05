@@ -32,7 +32,6 @@ int worker_main(void* arg) {
 
       worker_stats_count(worker, ctx->type, rte_pktmbuf_data_len(mbuf));
       if (action == SPI_DROP) {
-        worker->stats.forwarded--;
         worker->stats.dropped++;
         rte_pktmbuf_free(mbuf);
         continue;
@@ -77,7 +76,9 @@ unsigned int workers_init(struct worker_arg workers[], struct spi_engine* spi, v
     memset(&workers[num_workers].stats, 0, sizeof(struct worker_stats));
 
     // send message to worker lcore to wake it up (WAIT (from init) -> RUNNING)
-    rte_eal_remote_launch(worker_main, &workers[num_workers], lcore_id);
+    if (rte_eal_remote_launch(worker_main, &workers[num_workers], lcore_id) < 0) {
+      rte_exit(EXIT_FAILURE, "Failed to rte_eal_remote_launch [lcore_id=%u]\n", lcore_id);
+    }
 
     num_workers++;
   }

@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-uint64_t dropped = 0;
+uint64_t dropped = 0, processed = 0;
 
 static void collect_worker_stats(struct worker_arg workers[], unsigned int num_workers, uint64_t* packets, uint64_t* bytes, uint64_t traffic[TRAFFIC_MAX], uint64_t* forwarded, uint64_t* dropped_worker) {
   *packets = *bytes = *forwarded = *dropped_worker = 0;
@@ -84,10 +84,7 @@ void* stats_thread_main(void* args) {
 }
 
 void stats_print(struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers) {
-  uint64_t packets = 0;
-  uint64_t bytes = 0;
-  uint64_t forwarded = 0;
-  uint64_t dropped_worker = 0;
+  uint64_t packets = 0, bytes = 0, forwarded = 0, dropped_worker = 0;
   uint64_t traffic[TRAFFIC_MAX];
 
   collect_worker_stats(
@@ -104,7 +101,7 @@ void stats_print(struct flow_table* ft, struct worker_arg workers[], unsigned in
 
   printf("\n");
   printf("========== Final Statistics ==========\n");
-  printf("Packets dispatched: %" PRIu64 "\n", (uint64_t)NUM_PACKETS);
+  printf("Packets dispatched: %" PRIu64 "\n", processed);
   printf("Packets processed:  %" PRIu64 "\n", packets);
   printf("Packets forwarded:  %" PRIu64 "\n", forwarded);
   printf("Packets dropped:    %" PRIu64 "\n", total_dropped);
