@@ -111,13 +111,14 @@ void pcap_replay(uint16_t port_id, struct flow_table* ft, struct worker_arg work
 
     if ((processed + n) / 10000 != processed / 10000) {
       uint64_t now = rte_get_tsc_cycles();
-      if (now - last_age < timeout_cycles) continue;
+      if (now - last_age < timeout_cycles) goto skip;
       last_age = now;
       uint64_t aged_flows = flow_table_age(ft, now, timeout_cycles);
-      if (aged_flows == 0) continue;
-      printf("Aged out %" PRIu64 " flows!\n");
+      if (aged_flows == 0) goto skip;
+      printf("Aged out %" PRIu64 " flows!\n", aged_flows);
     }
 
+  skip:;
     processed += n;
   }
 
@@ -126,7 +127,7 @@ void pcap_replay(uint16_t port_id, struct flow_table* ft, struct worker_arg work
 
   {
     uint64_t aged_flows = flow_table_age(ft, rte_get_tsc_cycles(), timeout_cycles);
-    if (aged_flows != 0) printf("Aged out %" PRIu64 " flows!\n");
+    if (aged_flows != 0) printf("Aged out %" PRIu64 " flows!\n", aged_flows);
   }
 }
 

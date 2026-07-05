@@ -85,9 +85,9 @@ uint64_t flow_table_age(struct flow_table* ft, uint64_t now, uint64_t timeout_cy
     if (entry->in_use == 0) continue;
     if (now - entry->last_seen < timeout_cycles) continue;
 
-    aged_flows++;
     int ret = rte_hash_del_key(ft->hash, &entry->key);
     if (ret < 0) continue;
+    aged_flows++;
 
     entry->in_use = 0;
   }
