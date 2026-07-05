@@ -10,7 +10,7 @@
 
 #define MAX_WORKERS 4
 // according to dpdk docs, num of objects in a mempool should be 2^n-1
-#define POOL_NUM_MBUFS 8191
+#define POOL_NUM_MBUFS 16383
 #define POOL_CACHE_SIZE 256
 
 // change this to 1 to turn spi rule on

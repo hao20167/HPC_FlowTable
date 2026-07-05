@@ -92,6 +92,7 @@ uint64_t flow_table_age(struct flow_table* ft, uint64_t now, uint64_t timeout_cy
     aged_flows++;
 
     entry->in_use = 0;
+    // FIX: free not used entry in flow_table
   }
 
   if (aged_flows) {

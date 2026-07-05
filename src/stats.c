@@ -2,13 +2,16 @@
 #include "flow_table.h"
 #include "worker.h"
 
+#include <inttypes.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 uint64_t dropped = 0, processed = 0;
+static time_t stats_start_time = 0;
 
 static void collect_worker_stats(struct worker_arg workers[], unsigned int num_workers, uint64_t* packets, uint64_t* bytes, uint64_t traffic[TRAFFIC_MAX], uint64_t* forwarded, uint64_t* dropped_worker) {
   *packets = *bytes = *forwarded = *dropped_worker = 0;
@@ -28,6 +31,8 @@ static void collect_worker_stats(struct worker_arg workers[], unsigned int num_w
 }
 
 static void print_realtime(struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers, volatile sig_atomic_t* stop) {
+  stats_start_time = time(NULL);
+
   uint64_t prev_packets = 0;
   uint64_t prev_bytes = 0;
 
@@ -98,6 +103,7 @@ void stats_print(struct flow_table* ft, struct worker_arg workers[], unsigned in
   );
 
   uint64_t total_dropped = dropped + dropped_worker;
+  double seconds = stats_start_time > 0 ? difftime(time(NULL), stats_start_time) : 0.0;
 
   printf("\n");
   printf("========== Final Statistics ==========\n");
@@ -108,6 +114,17 @@ void stats_print(struct flow_table* ft, struct worker_arg workers[], unsigned in
   printf("  - Main dropped:   %" PRIu64 "\n", dropped);
   printf("  - Worker dropped: %" PRIu64 "\n", dropped_worker);
   printf("Bytes processed:    %" PRIu64 "\n", bytes);
+
+  if (seconds > 0.0) {
+    double pps = (double)packets / seconds;
+    double mbps = ((double)bytes * 8.0) / seconds / 1000000.0;
+    double gbps = ((double)bytes * 8.0) / seconds / 1000000000.0;
+
+    printf("Duration:           %.2f sec\n", seconds);
+    printf("PPS:                %.2f\n", pps);
+    printf("Mbps:               %.2f\n", mbps);
+    printf("Gbps:               %.4f\n", gbps);
+  }
 
   if (packets > 0) {
     printf("Avg packet size:    %.2f bytes\n", (double)bytes / (double)packets);
