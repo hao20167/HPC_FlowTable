@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -I./include $(shell pkg-config --cflags libdpdk) -pthread
+CFLAGS = -Wall -Wextra -Wformat=2 -Werror=format -I./include $(shell pkg-config --cflags libdpdk) -pthread
 LDFLAGS = $(shell pkg-config --libs libdpdk) -pthread
 
 TARGET = bin/main
