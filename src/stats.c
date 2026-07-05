@@ -1,5 +1,4 @@
 #include "stats.h"
-#include "config.h"
 #include "flow_table.h"
 #include "worker.h"
 
