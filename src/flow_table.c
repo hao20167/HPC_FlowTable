@@ -1,10 +1,10 @@
 #include "flow_table.h"
 
-#include <rte_hash.h>
-#include <rte_jhash.h>
-#include <rte_malloc.h>
-
 #include <stdlib.h>
+
+#include <rte_hash.h>
+#include <rte_hash_crc.h>
+#include <rte_malloc.h>
 
 void flow_table_init(struct flow_table* ft, uint32_t capacity) {
   struct rte_hash_parameters params = {
@@ -12,7 +12,7 @@ void flow_table_init(struct flow_table* ft, uint32_t capacity) {
     .entries = capacity,
     .key_len = sizeof(struct flow_key),
     .hash_func_init_val = 0,
-    .hash_func = rte_jhash, // TODO: why
+    .hash_func = rte_hash_crc, // TODO: why
     .socket_id = rte_socket_id()
   };
 
@@ -22,7 +22,7 @@ void flow_table_init(struct flow_table* ft, uint32_t capacity) {
     rte_exit(EXIT_FAILURE, "Failed to initialize flow_table\n");
   }
 
-  // this, initializes in the `hugepages` area
+  // this is initialized in the `hugepages` area
   ft->entries = rte_zmalloc("flow_entries", sizeof(struct flow_entry) * capacity, 64);
   if (ft->entries == NULL) {
     fprintf(stderr, "Failed to initialize flow_entry\n");
@@ -63,6 +63,7 @@ struct flow_entry* flow_table_lookup_or_create(
   entry->key = *key;
   // FIX: maybe, assign to the least average used worker (in a specific time)
   // and this may cause a notable performance downgrade
+  // change to toeplit_hash (after each worker already has their own flow table)
   entry->worker_id = key->src_ip % num_workers;
   entry->in_use = 1;
   entry->create_time = now;
