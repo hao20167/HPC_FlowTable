@@ -12,8 +12,8 @@ struct flow_key {
   uint16_t dst_port;
   uint8_t protocol;
   // 13 bytes
-  uint8_t _padding[3]; // FIX: can this be optimized?
-  // ensure all the values are being set to 0
+  uint8_t _padding[3]; 
+  // to avoid garbage values (when declares flow_key key = {0}), which will destroy hash function
 }; // WARN: consider using `__attribute__((__packed__));`
 
 struct flow_entry {

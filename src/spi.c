@@ -192,5 +192,3 @@ void spi_engine_stats_print(FILE* fp, const struct spi_engine* engine) {
     fprintf(fp, "%-16s action=%-8s hits=%lu\n", r->name, spi_action_str[r->action], engine->hits[i]);
   }
 }
-
-

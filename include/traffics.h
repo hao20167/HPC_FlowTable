@@ -5,7 +5,6 @@
 
 #include <stdint.h>
 
-// WARN: why did you choose this order
 typedef enum {
   TRAFFIC_HTTP = 0,
   TRAFFIC_HTTPS,
