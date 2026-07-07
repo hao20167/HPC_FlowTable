@@ -1,7 +1,6 @@
 #include "pcap.h"
 #include "config.h"
 #include "flow_table.h"
-#include "rte_branch_prediction.h"
 #include "stats.h"
 #include "packet_parser.h"
 #include "packet_ctx.h"
@@ -54,13 +53,13 @@ void pcap_init(uint16_t port_id, struct rte_mempool* mbuf_pool) {
 #include <rte_thash.h>
 
 /* Standard 40-byte Microsoft RSS Key used by most NICs by default */
-static const uint8_t default_rss_key[40] = {
-    0x6d, 0x5a, 0x56, 0xda, 0x25, 0x5b, 0x0e, 0xc2,
-    0x41, 0x67, 0x25, 0x3d, 0x43, 0xa3, 0x8f, 0xb0,
-    0xd0, 0xca, 0x2b, 0xcb, 0xae, 0x7b, 0x30, 0xb4,
-    0x77, 0xcb, 0x2d, 0xa3, 0x80, 0x30, 0xf2, 0x0c,
-    0x6a, 0x42, 0xb7, 0x3b, 0xbe, 0xac, 0x01, 0xfa
-};
+// static const uint8_t default_rss_key[40] = {
+//     0x6d, 0x5a, 0x56, 0xda, 0x25, 0x5b, 0x0e, 0xc2,
+//     0x41, 0x67, 0x25, 0x3d, 0x43, 0xa3, 0x8f, 0xb0,
+//     0xd0, 0xca, 0x2b, 0xcb, 0xae, 0x7b, 0x30, 0xb4,
+//     0x77, 0xcb, 0x2d, 0xa3, 0x80, 0x30, 0xf2, 0x0c,
+//     0x6a, 0x42, 0xb7, 0x3b, 0xbe, 0xac, 0x01, 0xfa
+// };
 
 // static unsigned int teoplitz_dispatch(struct flow_key* key, unsigned int num_worker) {
 //   union rte_thash_tuple tuple;
@@ -109,6 +108,7 @@ void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct worker_
       }
 
       // unsigned int worker_id = teoplitz_dispatch(&key, num_workers);
+      // FIX: 1-way flow affinity
       unsigned int worker_id = (key.src_ip ^ key.dst_ip ^ ((uint32_t)key.src_port << 16 | key.dst_port) ^ key.protocol) % num_workers;
       // unsigned int worker_id = key.src_ip % num_workers;
 
@@ -128,7 +128,7 @@ void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct worker_
           worker_pkt_cnt[i],
           NULL
         );
-        if (unlikely(sent < worker_pkt_cnt[i])) {
+        if (sent < worker_pkt_cnt[i]) {
           for (unsigned int j = sent; j < worker_pkt_cnt[i]; j++) {
             rte_pktmbuf_free(worker_pkts[i][j]);
           }
@@ -141,11 +141,6 @@ void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct worker_
   }
 
   *stop = 1;
-  rte_eal_mp_wait_lcore();
-
-
-  rte_eth_dev_stop(port_id);
-  rte_eth_dev_close(port_id);
 
   // exit(0); // WARN: lines after rte_eal_mp_wait_lcore only print out after i uncomment this? why?
 }

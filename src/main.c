@@ -7,6 +7,8 @@
 #include <signal.h>
 #include <stdlib.h>
 
+#include <rte_ethdev.h>
+
 static volatile sig_atomic_t stop = 0;
 
 static void handle_signal(int signum) {
@@ -65,6 +67,17 @@ int main(int argc, char **argv) {
   // ========================================================================
 
   stats_print(workers, num_workers);
+
+  rte_eal_mp_wait_lcore();
+  // pcap cleanup
+  rte_eth_dev_stop(port_id);
+  rte_eth_dev_close(port_id);
+
+  for (unsigned int i = 0; i < num_workers; i++) {
+    flow_table_free(&workers[i].ft); 
+    rte_ring_free(workers[i].ring);
+  }
+  rte_mempool_free(mbuf_pool);
 
   rte_eal_cleanup();
   printf("All clear!\n");

@@ -81,10 +81,6 @@ int worker_main(void* arg) {
 
   printf("Worker %u stopped, packets processed = %" PRIu64 "\n", worker->worker_id, worker->stats.packets);
 
-
-  flow_table_free(&worker->ft); 
-  // TODO: free worker ring, mempool
-
   return 0;
 }
 
