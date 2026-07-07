@@ -3,7 +3,6 @@
 
 #define RESULT_PATH "tests/result.txt"
 
-// WARN: i have literally no idea how to choose those constant numbers, will have to ask gpt later
 #define WORKER_FLOW_TABLE_CAP 65536
 #define WORKER_FLOW_TIME_LIMIT_SECONDS 5
 

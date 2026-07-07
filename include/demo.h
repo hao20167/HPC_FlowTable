@@ -12,8 +12,6 @@
 #include <rte_tcp.h>
 #include <rte_udp.h>
 
-// TODO: restrict!!!
-// WARN: when to use this
 void demo_key(struct flow_key *restrict key, uint64_t i) {
   uint32_t id = i % 1000;
   key->src_ip = 0x0a000001 + id;
@@ -24,7 +22,6 @@ void demo_key(struct flow_key *restrict key, uint64_t i) {
   // 17: udp, 6: tcp
 }
 
-// WARN: i aint gonna write all of this
 int demo_tcp_mbuf(struct rte_mbuf *m, uint64_t i) {
   uint16_t pkt_len = sizeof(struct rte_ether_hdr) +
                      sizeof(struct rte_ipv4_hdr) + sizeof(struct rte_tcp_hdr);

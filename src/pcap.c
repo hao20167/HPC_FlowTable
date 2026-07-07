@@ -151,7 +151,5 @@ void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct worker_
   }
 
   *stop = 1;
-
-  // exit(0); // WARN: lines after rte_eal_mp_wait_lcore only print out after i uncomment this? why?
 }
 

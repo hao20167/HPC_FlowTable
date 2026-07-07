@@ -25,7 +25,6 @@ void flow_table_init(struct flow_table* ft, uint32_t capacity, unsigned int work
     rte_exit(EXIT_FAILURE, "Failed to initialize flow_table\n");
   }
 
-  // this is initialized in the `hugepages` area
   ft->entries = rte_zmalloc("flow_entries", sizeof(struct flow_entry) * capacity, 64);
   if (ft->entries == NULL) {
     fprintf(stderr, "Failed to initialize flow_entry\n");
@@ -63,11 +62,6 @@ struct flow_entry* flow_table_lookup_or_create(
   struct flow_entry* entry = &ft->entries[ft->used];
 
   entry->key = *key;
-  // FIX: maybe, assign to the least average used worker (in a specific time)
-  // and this may cause a notable performance downgrade
-  // change to toeplit_hash (after each worker already has their own flow table)
-  // each worker now has their own flow table => doesnt have to store worker_id no more
-  // entry->worker_id = key->src_ip % num_workers;
   entry->in_use = 1;
   entry->create_time = now;
   entry->last_seen = now;
