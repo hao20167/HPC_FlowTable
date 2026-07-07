@@ -52,7 +52,7 @@ struct flow_entry* flow_table_lookup_or_create(
     entry->packets++;
     entry->last_seen = now;
     ft->lookup_hits++;
-    return found;
+    return entry;
   }
 
   ft->lookup_misses++;

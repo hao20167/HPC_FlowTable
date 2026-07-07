@@ -4,6 +4,7 @@
 #include "generic/rte_cycles.h"
 #include "rte_mbuf.h"
 #include "rte_mbuf_core.h"
+#include "rte_mempool.h"
 #include "stats.h"
 #include "packet_parser.h"
 #include "packet_ctx.h"
@@ -50,7 +51,8 @@ void pcap_init(uint16_t port_id, struct rte_mempool* mbuf_pool) {
   printf("Port %u started\n", port_id);
 }
 
-void pcap_replay(uint16_t port_id, struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers, volatile sig_atomic_t* stop) {
+void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers, volatile sig_atomic_t* stop) {
+  (void)mbuf_pool;
   uint64_t last_age = 0, timeout_cycles = rte_get_tsc_hz() * FLOW_TIME_LIMIT;
 
   struct rte_mbuf* pkts[RX_BURST_SIZE];
@@ -129,5 +131,10 @@ void pcap_replay(uint16_t port_id, struct flow_table* ft, struct worker_arg work
     uint64_t aged_flows = flow_table_age(ft, rte_get_tsc_cycles(), timeout_cycles);
     if (aged_flows != 0) printf("Aged out %" PRIu64 " flows!\n", aged_flows);
   }
+
+  rte_eth_dev_stop(port_id);
+  rte_eth_dev_close(port_id);
+
+  // exit(0); // WARN: lines after rte_eal_mp_wait_lcore only print out after i uncomment this? why?
 }
 

@@ -55,13 +55,13 @@ int main(int argc, char **argv) {
   // ========================================================================
   // ============================== start main ==============================
   pthread_t stats_thread;
-  struct stats_arg arg = {&ft, workers, num_workers, &stop};
+  struct stats_arg arg = {mbuf_pool, &ft, workers, num_workers, &stop};
   // tends to affect nothing at all
   if (pthread_create(&stats_thread, NULL, stats_thread_main, &arg) != 0) {
     rte_exit(EXIT_FAILURE, "Realtime stats thread creation failed\n");
   }
 
-  pcap_replay(port_id, &ft, workers, num_workers, &stop);
+  pcap_replay(mbuf_pool, port_id, &ft, workers, num_workers, &stop);
 
   pthread_join(stats_thread, NULL);
   // =============================== end main ===============================
@@ -70,7 +70,9 @@ int main(int argc, char **argv) {
   stats_print(&ft, workers, num_workers);
 
   flow_table_free(&ft);
+  // TODO: free worker ring, mempool
   rte_eal_cleanup();
+  printf("All clear!\n");
 
   return 0;
 }

@@ -55,7 +55,7 @@ void worker_ring_init(struct rte_ring** ring, unsigned int num_workers) {
   snprintf(ring_name, 32, "worker_ring_%u", num_workers);
   *ring = rte_ring_create(
     ring_name,
-    RING_SIZE,
+    WORKER_RING_SIZE,
     rte_socket_id(),
     RING_F_SP_ENQ | RING_F_SC_DEQ
   );

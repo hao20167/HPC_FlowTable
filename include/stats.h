@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 struct stats_arg {
+  struct rte_mempool* mbuf_pool;
   struct flow_table* ft;
   struct worker_arg* workers;
   unsigned int num_workers;
