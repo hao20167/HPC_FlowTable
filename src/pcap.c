@@ -104,7 +104,9 @@ void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct worker_
         continue;
       }
 
-      unsigned int worker_id = teoplitz_dispatch(&key, num_workers);
+      // unsigned int worker_id = teoplitz_dispatch(&key, num_workers);
+      unsigned int worker_id = (key.src_ip ^ key.dst_ip ^ ((uint32_t)key.src_port << 16 | key.dst_port) ^ key.protocol) % num_workers;
+      // unsigned int worker_id = key.src_ip % num_workers;
 
       // save traffic types and key to priv space in mbuf (metadata field)
       struct packet_ctx* ctx = packet_to_ctx(mbuf);

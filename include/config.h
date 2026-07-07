@@ -8,6 +8,7 @@
 #define NUM_PACKETS 10000
 #define WORKER_RING_BURST_SIZE 32
 #define WORKER_RING_SIZE 4096
+#define PER_WORKER_STATS_PRINT 0
 
 #define MAX_WORKERS 4
 
@@ -21,17 +22,15 @@
 #define POOL_NUM_MBUFS 32767
 #define POOL_CACHE_SIZE 256
 
-// change this to 1 to turn spi rule on
 #define SPI_ENGINE 0
 #define SPI_RULE_NAME_LEN 16
 #define SPI_RULE_LEN 128
 #define SPI_RULE_PATH "rules.cfg"
 
+// change this to 4096 wont help
 #define RX_RING_SIZE 1024
 // change this to 64 wont help
 #define RX_BURST_SIZE 32
 #define RX_MAX_EMPTY_POLLS 512
-
-#define PER_WORKER_STATS_PRINT 0
 
 #endif
