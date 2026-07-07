@@ -107,6 +107,7 @@ void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct worker_
         continue;
       }
 
+      // [3] assign current flow to a specific worker
       // unsigned int worker_id = teoplitz_dispatch(&key, num_workers);
       // FIX: 1-way flow affinity
       unsigned int worker_id = (key.src_ip ^ key.dst_ip ^ ((uint32_t)key.src_port << 16 | key.dst_port) ^ key.protocol) % num_workers;
@@ -120,6 +121,7 @@ void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct worker_
       worker_pkts[worker_id][worker_pkt_cnt[worker_id]++] = mbuf;
     }
 
+    // [4] pass the packets to worker
     for (unsigned int i = 0; i < num_workers; i++) {
       if (worker_pkt_cnt[i] > 0) {
         unsigned int sent = rte_ring_enqueue_burst(
