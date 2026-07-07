@@ -66,7 +66,7 @@ int worker_main(void* arg) {
       last_age = now;
       uint64_t aged_flows = flow_table_age(&worker->ft, now, timeout_cycles);
       if (aged_flows == 0) goto skip;
-      printf("Aged out %" PRIu64 " flows!\n", aged_flows);
+      // printf("Aged out %" PRIu64 " flows!\n", aged_flows);
     }
 
   skip:;
@@ -75,7 +75,8 @@ int worker_main(void* arg) {
 
   {
     uint64_t aged_flows = flow_table_age(&worker->ft, rte_get_tsc_cycles(), timeout_cycles);
-    if (aged_flows != 0) printf("Aged out %" PRIu64 " flows!\n", aged_flows);
+    (void)aged_flows;
+    // if (aged_flows != 0) printf("Aged out %" PRIu64 " flows!\n", aged_flows);
   }
 
   printf("Worker %u stopped, packets processed = %" PRIu64 "\n", worker->worker_id, worker->stats.packets);

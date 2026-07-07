@@ -1,6 +1,7 @@
 #include "pcap.h"
 #include "config.h"
 #include "flow_table.h"
+#include "rte_branch_prediction.h"
 #include "stats.h"
 #include "packet_parser.h"
 #include "packet_ctx.h"
@@ -61,16 +62,16 @@ static const uint8_t default_rss_key[40] = {
     0x6a, 0x42, 0xb7, 0x3b, 0xbe, 0xac, 0x01, 0xfa
 };
 
-static unsigned int teoplitz_dispatch(struct flow_key* key, unsigned int num_worker) {
-  union rte_thash_tuple tuple;
-  tuple.v4.src_addr = key->src_ip;
-  tuple.v4.dst_addr = key->dst_ip;
-  tuple.v4.sport = key->src_port;
-  tuple.v4.dport = key->dst_port;
-  uint32_t tuple_len_32bit_words = RTE_THASH_V4_L4_LEN; 
-  uint32_t hash_result = rte_softrss_be((uint32_t *)&tuple, tuple_len_32bit_words, default_rss_key);
-  return hash_result % num_worker;
-}
+// static unsigned int teoplitz_dispatch(struct flow_key* key, unsigned int num_worker) {
+//   union rte_thash_tuple tuple;
+//   tuple.v4.src_addr = key->src_ip;
+//   tuple.v4.dst_addr = key->dst_ip;
+//   tuple.v4.sport = key->src_port;
+//   tuple.v4.dport = key->dst_port;
+//   uint32_t tuple_len_32bit_words = RTE_THASH_V4_L4_LEN; 
+//   uint32_t hash_result = rte_softrss_be((uint32_t *)&tuple, tuple_len_32bit_words, default_rss_key);
+//   return hash_result % num_worker;
+// }
 
 void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct worker_arg workers[], unsigned int num_workers, volatile sig_atomic_t* stop) {
   (void)mbuf_pool;
@@ -93,6 +94,9 @@ void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct worker_
     }
     empty_polls = 0;
 
+    struct rte_mbuf* worker_pkts[MAX_WORKERS][RX_BURST_SIZE];
+    unsigned int worker_pkt_cnt[MAX_WORKERS] = {0};
+
     for (uint16_t i = 0; i < n; i++) {
       struct rte_mbuf* mbuf = pkts[i];
       struct flow_key key = {0};
@@ -113,10 +117,23 @@ void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct worker_
       ctx->type = get_traffic_type_from_flow_key(&key);
       ctx->key = key;
 
-      if (rte_ring_enqueue(workers[worker_id].ring, mbuf) < 0) {
-        rte_pktmbuf_free(mbuf);
-        dropped++;
-        continue;
+      worker_pkts[worker_id][worker_pkt_cnt[worker_id]++] = mbuf;
+    }
+
+    for (unsigned int i = 0; i < num_workers; i++) {
+      if (worker_pkt_cnt[i] > 0) {
+        unsigned int sent = rte_ring_enqueue_burst(
+          workers[i].ring,
+          (void**)&worker_pkts[i][0],
+          worker_pkt_cnt[i],
+          NULL
+        );
+        if (unlikely(sent < worker_pkt_cnt[i])) {
+          for (unsigned int j = sent; j < worker_pkt_cnt[i]; j++) {
+            rte_pktmbuf_free(worker_pkts[i][j]);
+          }
+          dropped += worker_pkt_cnt[i] - sent;
+        }
       }
     }
 
