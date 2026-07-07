@@ -85,6 +85,12 @@ void* stats_thread_main(void* args) {
 }
 
 void stats_print(struct worker_arg workers[], unsigned int num_workers) {
+  FILE* fp = fopen(RESULT_PATH, "w");
+  if (fp == NULL) {
+    perror("Failed to open " RESULT_PATH "\n");
+    fp = stdout;
+  }
+
   uint64_t packets = 0, bytes = 0, forwarded = 0, dropped_worker = 0;
   uint64_t traffic[TRAFFIC_MAX];
 
@@ -100,47 +106,54 @@ void stats_print(struct worker_arg workers[], unsigned int num_workers) {
 
   double seconds = stats_start_time > 0 ? difftime(time(NULL), stats_start_time) : 0.0;
 
-  printf("\n");
-  printf("========== Final Statistics ==========\n");
-  printf("Packets dispatched: %" PRIu64 "\n", processed);
-  printf("Packets processed:  %" PRIu64 "\n", packets);
-  printf("Packets forwarded:  %" PRIu64 "\n", forwarded);
-  printf("Packets dropped:    %" PRIu64 "\n", dropped + dropped_worker);
-  printf("  - Main dropped:   %" PRIu64 "\n", dropped);
-  printf("  - Worker dropped: %" PRIu64 "\n", dropped_worker);
-  printf("Bytes processed:    %" PRIu64 "\n", bytes);
+  fprintf(fp, "\n");
+  fprintf(fp, "========== Final Statistics ==========\n");
+  fprintf(fp, "Packets dispatched: %" PRIu64 "\n", processed);
+  fprintf(fp, "Packets processed:  %" PRIu64 "\n", packets);
+  fprintf(fp, "Packets forwarded:  %" PRIu64 "\n", forwarded);
+  fprintf(fp, "Packets dropped:    %" PRIu64 "\n", dropped + dropped_worker);
+  fprintf(fp, "  - Main dropped:   %" PRIu64 "\n", dropped);
+  fprintf(fp, "  - Worker dropped: %" PRIu64 "\n", dropped_worker);
+  fprintf(fp, "Bytes processed:    %" PRIu64 "\n", bytes);
 
   if (seconds > 0.0) {
     double pps = (double)packets / seconds;
     double mbps = ((double)bytes * 8.0) / seconds / 1000000.0;
     double gbps = ((double)bytes * 8.0) / seconds / 1000000000.0;
 
-    printf("Duration:           %.2f sec\n", seconds);
-    printf("PPS:                %.2f\n", pps);
-    printf("Mbps:               %.2f\n", mbps);
-    printf("Gbps:               %.4f\n", gbps);
+    fprintf(fp, "Duration:           %.2f sec\n", seconds);
+    fprintf(fp, "PPS:                %.2f\n", pps);
+    fprintf(fp, "Mbps:               %.2f\n", mbps);
+    fprintf(fp, "Gbps:               %.4f\n", gbps);
   }
 
   if (packets > 0) {
-    printf("Avg packet size:    %.2f bytes\n", (double)bytes / (double)packets);
+    fprintf(fp, "Avg packet size:    %.2f bytes\n", (double)bytes / (double)packets);
   }
 
-  printf("========== Traffic ==========\n");
-  printf("HTTP:   %" PRIu64 "\n", traffic[TRAFFIC_HTTP]);
-  printf("HTTPS:  %" PRIu64 "\n", traffic[TRAFFIC_HTTPS]);
-  printf("DNS:    %" PRIu64 "\n", traffic[TRAFFIC_DNS]);
-  printf("TCP:    %" PRIu64 "\n", traffic[TRAFFIC_TCP]);
-  printf("UDP:    %" PRIu64 "\n", traffic[TRAFFIC_UDP]);
-  printf("OTHER:  %" PRIu64 "\n", traffic[TRAFFIC_OTHER]);
+  fprintf(fp, "========== Traffic ==========\n");
+  fprintf(fp, "HTTP:   %" PRIu64 "\n", traffic[TRAFFIC_HTTP]);
+  fprintf(fp, "HTTPS:  %" PRIu64 "\n", traffic[TRAFFIC_HTTPS]);
+  fprintf(fp, "DNS:    %" PRIu64 "\n", traffic[TRAFFIC_DNS]);
+  fprintf(fp, "TCP:    %" PRIu64 "\n", traffic[TRAFFIC_TCP]);
+  fprintf(fp, "UDP:    %" PRIu64 "\n", traffic[TRAFFIC_UDP]);
+  fprintf(fp, "OTHER:  %" PRIu64 "\n", traffic[TRAFFIC_OTHER]);
 
-  printf("========== Workers ==========\n");
-  printf("Num workers: %u\n", num_workers);
+  fprintf(fp, "========== Workers ==========\n");
+  fprintf(fp, "Num workers: %u\n", num_workers);
 
   if (PER_WORKER_STATS_PRINT == 0) return;
 
-  printf("========== Per-worker Stats ==========\n");
+  fprintf(fp, "\n\n\n");
+  fprintf(fp, "----------------------------------------\n");
+  fprintf(fp, "|           Per-worker Stats           |\n");
+  fprintf(fp, "----------------------------------------\n");
   for (unsigned int i = 0; i < num_workers; i++) {
-    worker_stats_print(&workers[i]);
+    worker_stats_print(fp, &workers[i]);
   }
-  printf("======================================\n");
+  fprintf(fp, "======================================\n");
+
+  if (fp != stdout) fclose(fp);
+
+  printf("Result is available at \n" RESULT_PATH);
 }

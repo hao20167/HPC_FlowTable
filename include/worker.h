@@ -32,6 +32,6 @@ int worker_main(void* arg);
 void worker_ring_init(struct rte_ring** ring, unsigned int num_workers);
 unsigned int workers_init(struct worker_arg workers[], struct spi_engine* spi, volatile sig_atomic_t *stop);
 void worker_stats_count(struct worker_arg* worker, traffic_type type, uint32_t bytes);
-void worker_stats_print(struct worker_arg* worker);
+void worker_stats_print(FILE* fp, struct worker_arg* worker);
 
 #endif
