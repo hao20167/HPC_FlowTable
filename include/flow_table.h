@@ -18,7 +18,7 @@ struct flow_key {
 
 struct flow_entry {
   struct flow_key key;
-  uint8_t worker_id;
+  // uint8_t worker_id;
   uint8_t in_use;
   uint64_t create_time;
   uint64_t last_seen;
@@ -39,12 +39,11 @@ struct flow_table {
   uint64_t lookup_misses;
 };
 
-void flow_table_init(struct flow_table* ft, uint32_t capacity);
+void flow_table_init(struct flow_table* ft, uint32_t capacity, unsigned int worker_id);
 void flow_table_free(struct flow_table* ft);
 struct flow_entry* flow_table_lookup_or_create(
   struct flow_table* ft,
   struct flow_key* key,
-  uint8_t num_workers,
   uint64_t now
 );
 

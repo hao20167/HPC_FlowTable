@@ -21,6 +21,7 @@ struct worker_stats {
 
 struct worker_arg {
   unsigned int worker_id;
+  struct flow_table ft;
   struct rte_ring* ring;
   struct spi_engine spi;
   volatile sig_atomic_t* stop;

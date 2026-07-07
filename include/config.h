@@ -2,8 +2,8 @@
 #define CONFIG_H
 
 // WARN: i have literally no idea how to choose those constant numbers, will have to ask gpt later
-#define FLOW_TABLE_CAP 65536
-#define FLOW_TIME_LIMIT_SECONDS 5
+#define WORKER_FLOW_TABLE_CAP 65536
+#define WORKER_FLOW_TIME_LIMIT_SECONDS 5
 
 #define NUM_PACKETS 10000
 #define WORKER_RING_BURST_SIZE 32

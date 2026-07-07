@@ -1,6 +1,5 @@
 #include "stats.h"
 #include "config.h"
-#include "flow_table.h"
 #include "worker.h"
 
 #include <inttypes.h>
@@ -33,7 +32,7 @@ static void collect_worker_stats(struct worker_arg workers[], unsigned int num_w
   }
 }
 
-static void print_realtime(struct rte_mempool* mbuf_pool, struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers, volatile sig_atomic_t* stop) {
+static void print_realtime(struct rte_mempool* mbuf_pool, struct worker_arg workers[], unsigned int num_workers, volatile sig_atomic_t* stop) {
   stats_start_time = time(NULL);
 
   uint64_t prev_packets = 0;
@@ -67,13 +66,6 @@ static void print_realtime(struct rte_mempool* mbuf_pool, struct flow_table* ft,
     printf("Forward:   %" PRIu64 "\n", forwarded);
     printf("Drop:      %" PRIu64 "\n", dropped + dropped_worker);
     printf("\n");
-    printf("=== Flows ===\n");
-    printf("Active:    %" PRIu64 "\n", ft->active_flows);
-    printf("Created:   %" PRIu64 "\n", ft->created_flows);
-    printf("Deleted:   %" PRIu64 "\n", ft->deleted_flows);
-    printf("Timeout:   %" PRIu64 "\n", ft->timeout_flows);
-    printf("Used:      %u/%u\n", ft->used, ft->capacity);
-    printf("\n");
     printf("=== Traffic ===\n");
     printf("HTTP:      %" PRIu64 "\n", traffic[TRAFFIC_HTTP]);
     printf("HTTPS:     %" PRIu64 "\n", traffic[TRAFFIC_HTTPS]);
@@ -88,11 +80,11 @@ static void print_realtime(struct rte_mempool* mbuf_pool, struct flow_table* ft,
 
 void* stats_thread_main(void* args) {
   struct stats_arg* arg = args;
-  print_realtime(arg->mbuf_pool, arg->ft, arg->workers, arg->num_workers, arg->stop);
+  print_realtime(arg->mbuf_pool, arg->workers, arg->num_workers, arg->stop);
   return NULL;
 }
 
-void stats_print(struct flow_table* ft, struct worker_arg workers[], unsigned int num_workers) {
+void stats_print(struct worker_arg workers[], unsigned int num_workers) {
   uint64_t packets = 0, bytes = 0, forwarded = 0, dropped_worker = 0;
   uint64_t traffic[TRAFFIC_MAX];
 
@@ -133,23 +125,6 @@ void stats_print(struct flow_table* ft, struct worker_arg workers[], unsigned in
     printf("Avg packet size:    %.2f bytes\n", (double)bytes / (double)packets);
   }
 
-  if (PER_WORKER_STATS_PRINT == 0) return;
-
-  printf("\n");
-  printf("========== Workers ==========\n");
-  printf("Num workers: %u\n", num_workers);
-
-  printf("\n");
-  printf("========== Flow Table ==========\n");
-  printf("Active flows:   %" PRIu64 "\n", ft->active_flows);
-  printf("Used:           %u/%u\n", ft->used, ft->capacity);
-  printf("Flows created:  %" PRIu64 "\n", ft->created_flows);
-  printf("Flows deleted:  %" PRIu64 "\n", ft->deleted_flows);
-  printf("Flows timeout:  %" PRIu64 "\n", ft->timeout_flows);
-  printf("Lookup hits:    %" PRIu64 "\n", ft->lookup_hits);
-  printf("Lookup misses:  %" PRIu64 "\n", ft->lookup_misses);
-
-  printf("\n");
   printf("========== Traffic ==========\n");
   printf("HTTP:   %" PRIu64 "\n", traffic[TRAFFIC_HTTP]);
   printf("HTTPS:  %" PRIu64 "\n", traffic[TRAFFIC_HTTPS]);
@@ -158,12 +133,14 @@ void stats_print(struct flow_table* ft, struct worker_arg workers[], unsigned in
   printf("UDP:    %" PRIu64 "\n", traffic[TRAFFIC_UDP]);
   printf("OTHER:  %" PRIu64 "\n", traffic[TRAFFIC_OTHER]);
 
-  printf("\n");
-  printf("========== Per-worker Stats ==========\n");
+  printf("========== Workers ==========\n");
+  printf("Num workers: %u\n", num_workers);
 
+  if (PER_WORKER_STATS_PRINT == 0) return;
+
+  printf("========== Per-worker Stats ==========\n");
   for (unsigned int i = 0; i < num_workers; i++) {
     worker_stats_print(&workers[i]);
   }
-
   printf("======================================\n");
 }

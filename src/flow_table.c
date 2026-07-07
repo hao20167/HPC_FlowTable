@@ -6,9 +6,12 @@
 #include <rte_hash_crc.h>
 #include <rte_malloc.h>
 
-void flow_table_init(struct flow_table* ft, uint32_t capacity) {
+void flow_table_init(struct flow_table* ft, uint32_t capacity, unsigned int worker_id) {
+  char hash_name[32];
+  snprintf(hash_name, sizeof(hash_name), "flow_hash_%u", worker_id);
+
   struct rte_hash_parameters params = {
-    .name = "flow_hash",
+    .name = hash_name,
     .entries = capacity,
     .key_len = sizeof(struct flow_key),
     .hash_func_init_val = 0,
@@ -42,7 +45,6 @@ void flow_table_free(struct flow_table* ft) {
 struct flow_entry* flow_table_lookup_or_create(
   struct flow_table* ft,
   struct flow_key* key,
-  uint8_t num_workers,
   uint64_t now
 ) {
   void* found = NULL;
@@ -64,7 +66,8 @@ struct flow_entry* flow_table_lookup_or_create(
   // FIX: maybe, assign to the least average used worker (in a specific time)
   // and this may cause a notable performance downgrade
   // change to toeplit_hash (after each worker already has their own flow table)
-  entry->worker_id = key->src_ip % num_workers;
+  // each worker now has their own flow table => doesnt have to store worker_id no more
+  // entry->worker_id = key->src_ip % num_workers;
   entry->in_use = 1;
   entry->create_time = now;
   entry->last_seen = now;

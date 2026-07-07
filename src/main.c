@@ -49,28 +49,23 @@ int main(int argc, char **argv) {
   struct worker_arg workers[MAX_WORKERS];
   unsigned int num_workers = workers_init(workers, &spi, &stop);
 
-  struct flow_table ft = {0};
-  flow_table_init(&ft, FLOW_TABLE_CAP);
-
   // ========================================================================
   // ============================== start main ==============================
   pthread_t stats_thread;
-  struct stats_arg arg = {mbuf_pool, &ft, workers, num_workers, &stop};
+  struct stats_arg arg = {mbuf_pool, workers, num_workers, &stop};
   // tends to affect nothing at all
   if (pthread_create(&stats_thread, NULL, stats_thread_main, &arg) != 0) {
     rte_exit(EXIT_FAILURE, "Realtime stats thread creation failed\n");
   }
 
-  pcap_replay(mbuf_pool, port_id, &ft, workers, num_workers, &stop);
+  pcap_replay(mbuf_pool, port_id, workers, num_workers, &stop);
 
   pthread_join(stats_thread, NULL);
   // =============================== end main ===============================
   // ========================================================================
 
-  stats_print(&ft, workers, num_workers);
+  stats_print(workers, num_workers);
 
-  flow_table_free(&ft);
-  // TODO: free worker ring, mempool
   rte_eal_cleanup();
   printf("All clear!\n");
 
