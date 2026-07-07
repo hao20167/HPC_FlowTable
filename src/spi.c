@@ -158,6 +158,7 @@ int spi_engine_load(struct spi_engine* engine, const char* path) {
 }
 
 struct spi_rule* spi_engine_match(struct spi_engine* engine, const struct flow_key* key) {
+  if (SPI_ENGINE == 0) return NULL;
   for (size_t i = 0; i < engine->num_rule; i++) {
     struct spi_rule* r = &engine->rules[i];
 
@@ -181,6 +182,10 @@ void spi_engine_init(struct spi_engine *spi) {
 }
 
 void spi_engine_stats_print(const struct spi_engine* engine) {
+  if (SPI_ENGINE == 0) {
+    printf("SPI_ENGINE_STATUS = OFF\n");
+    return;
+  }
   printf("\n=== SPI Rule Hits ===\n");
   for (size_t i = 0; i < engine->num_rule; i++) {
     const struct spi_rule* r = &engine->rules[i];

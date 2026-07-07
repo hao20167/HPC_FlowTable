@@ -1,18 +1,21 @@
 #include "flow_table.h"
 
-#include <rte_hash.h>
-#include <rte_jhash.h>
-#include <rte_malloc.h>
-
 #include <stdlib.h>
 
-void flow_table_init(struct flow_table* ft, uint32_t capacity) {
+#include <rte_hash.h>
+#include <rte_hash_crc.h>
+#include <rte_malloc.h>
+
+void flow_table_init(struct flow_table* ft, uint32_t capacity, unsigned int worker_id) {
+  char hash_name[32];
+  snprintf(hash_name, sizeof(hash_name), "flow_hash_%u", worker_id);
+
   struct rte_hash_parameters params = {
-    .name = "flow_hash",
+    .name = hash_name,
     .entries = capacity,
     .key_len = sizeof(struct flow_key),
     .hash_func_init_val = 0,
-    .hash_func = rte_jhash, // TODO: why
+    .hash_func = rte_hash_crc, // TODO: why
     .socket_id = rte_socket_id()
   };
 
@@ -22,7 +25,7 @@ void flow_table_init(struct flow_table* ft, uint32_t capacity) {
     rte_exit(EXIT_FAILURE, "Failed to initialize flow_table\n");
   }
 
-  // this, initializes in the `hugepages` area
+  // this is initialized in the `hugepages` area
   ft->entries = rte_zmalloc("flow_entries", sizeof(struct flow_entry) * capacity, 64);
   if (ft->entries == NULL) {
     fprintf(stderr, "Failed to initialize flow_entry\n");
@@ -42,7 +45,6 @@ void flow_table_free(struct flow_table* ft) {
 struct flow_entry* flow_table_lookup_or_create(
   struct flow_table* ft,
   struct flow_key* key,
-  uint8_t num_workers,
   uint64_t now
 ) {
   void* found = NULL;
@@ -52,7 +54,7 @@ struct flow_entry* flow_table_lookup_or_create(
     entry->packets++;
     entry->last_seen = now;
     ft->lookup_hits++;
-    return found;
+    return entry;
   }
 
   ft->lookup_misses++;
@@ -63,7 +65,9 @@ struct flow_entry* flow_table_lookup_or_create(
   entry->key = *key;
   // FIX: maybe, assign to the least average used worker (in a specific time)
   // and this may cause a notable performance downgrade
-  entry->worker_id = key->src_ip % num_workers;
+  // change to toeplit_hash (after each worker already has their own flow table)
+  // each worker now has their own flow table => doesnt have to store worker_id no more
+  // entry->worker_id = key->src_ip % num_workers;
   entry->in_use = 1;
   entry->create_time = now;
   entry->last_seen = now;
@@ -92,6 +96,7 @@ uint64_t flow_table_age(struct flow_table* ft, uint64_t now, uint64_t timeout_cy
     aged_flows++;
 
     entry->in_use = 0;
+    // FIX: free not used entry in flow_table
   }
 
   if (aged_flows) {
