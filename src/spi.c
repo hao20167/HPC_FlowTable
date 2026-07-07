@@ -181,17 +181,16 @@ void spi_engine_init(struct spi_engine *spi) {
   }
 }
 
-void spi_engine_stats_print(const struct spi_engine* engine) {
+void spi_engine_stats_print(FILE* fp, const struct spi_engine* engine) {
   if (SPI_ENGINE == 0) {
-    printf("SPI_ENGINE_STATUS = OFF\n");
+    fprintf(fp, "SPI_ENGINE_STATUS = OFF\n");
     return;
   }
-  printf("\n=== SPI Rule Hits ===\n");
+  fprintf(fp, "\n=== SPI Rule Hits ===\n");
   for (size_t i = 0; i < engine->num_rule; i++) {
     const struct spi_rule* r = &engine->rules[i];
-    printf("%-16s action=%-8s hits=%lu\n", r->name, spi_action_str[r->action], engine->hits[i]);
+    fprintf(fp, "%-16s action=%-8s hits=%lu\n", r->name, spi_action_str[r->action], engine->hits[i]);
   }
-  printf("\n=== SPI Rule Hits ===\n");
 }
 
 

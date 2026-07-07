@@ -2,6 +2,7 @@
 #include "flow_table.h"
 #include "config.h"
 #include "packet_ctx.h"
+#include "rte_hash.h"
 #include "spi.h"
 #include "traffics.h"
 #include "config.h"
@@ -27,19 +28,37 @@ int worker_main(void* arg) {
       rte_pause(); 
       continue;
     }
+
+    const void* keys[WORKER_RING_BURST_SIZE];
+    void* entries[WORKER_RING_BURST_SIZE];
+    uint64_t hit_mask = 0; 
+    for (unsigned int i = 0; i < n; i++) {
+      keys[i] = &packet_to_ctx(pkts[i])->key;
+    }
+
+    rte_hash_lookup_bulk_data(
+      worker->ft.hash,
+      keys,
+      n,
+      &hit_mask,
+      entries
+    );
+    
     uint64_t now = rte_get_tsc_cycles();
+
     for (unsigned int i = 0; i < n; i++) {
       struct rte_mbuf* mbuf = pkts[i];
       struct packet_ctx* ctx = packet_to_ctx(mbuf);
       struct spi_rule* rule = spi_engine_match(&worker->spi, &ctx->key);
 
-      struct flow_entry* entry = flow_table_lookup_or_create(
-        &worker->ft,
-        &ctx->key,
-        now
-      );
+      struct flow_entry* entry;
+      if (hit_mask >> i & 1) {
+        entry = entries[i];
+        entry->packets++;
+        entry->last_seen = now;
+        worker->ft.lookup_hits++;
+      } else entry = flow_table_lookup_or_create( &worker->ft, &ctx->key, now);
       if (entry == NULL) {
-        rte_pktmbuf_free(mbuf);
         worker->stats.dropped++;
         continue;
       }
@@ -50,15 +69,14 @@ int worker_main(void* arg) {
       worker_stats_count(worker, ctx->type, rte_pktmbuf_data_len(mbuf));
       if (action == SPI_DROP) {
         worker->stats.dropped++;
-        rte_pktmbuf_free(mbuf);
         continue;
       }
 
       worker->stats.forwarded++;
       // TODO: action == SPI_COUNT / SPI_LOG
-
-      rte_pktmbuf_free(mbuf);
     }
+
+    rte_pktmbuf_free_bulk(pkts, n);
 
     if ((processed + n) / 10000 != processed / 10000) {
       uint64_t now = rte_get_tsc_cycles();
@@ -138,23 +156,23 @@ void worker_stats_count(struct worker_arg* worker, traffic_type type, uint32_t b
   stats->counters[type]++;
 }
 
-void worker_stats_print(struct worker_arg* worker) {
+void worker_stats_print(FILE* fp, struct worker_arg* worker) {
   struct worker_stats* stats = &worker->stats;
-  printf("===========\n");
-  printf("[worker_id %u]\n", worker->worker_id);
-  printf("processed %" PRIu64 " bytes in %" PRIu64 " packets\n", stats->bytes, stats->packets);
+  fprintf(fp, "=================================\n");
+  fprintf(fp, "----------[worker_id %u]----------\n", worker->worker_id);
+  fprintf(fp, "processed %" PRIu64 " bytes in %" PRIu64 " packets\n", stats->bytes, stats->packets);
   for (uint8_t i = 0; i < TRAFFIC_MAX; i++) {
-    printf("> %s: %" PRIu64 "\n", traffic_type_str[i], stats->counters[i]);
+    fprintf(fp, "> %s: %" PRIu64 "\n", traffic_type_str[i], stats->counters[i]);
   }
-  printf("packets forwarded: %" PRIu64 "\n", stats->forwarded);
-  printf("packets dropped: %" PRIu64 "\n", stats->dropped);
-  printf("Active flows:   %" PRIu64 "\n", worker->ft.active_flows);
-  printf("Created flows:  %" PRIu64 "\n", worker->ft.created_flows);
-  printf("Deleted flows:  %" PRIu64 "\n", worker->ft.deleted_flows);
-  printf("Timeout flows:  %" PRIu64 "\n", worker->ft.timeout_flows);
-  printf("Lookup hits:    %" PRIu64 "\n", worker->ft.lookup_hits);
-  printf("Lookup misses:  %" PRIu64 "\n", worker->ft.lookup_misses);
-  printf("\n");
-  spi_engine_stats_print(&worker->spi);
-  printf("===========\n");
+  fprintf(fp, "packets forwarded: %" PRIu64 "\n", stats->forwarded);
+  fprintf(fp, "packets dropped: %" PRIu64 "\n", stats->dropped);
+  fprintf(fp, "Active flows:   %" PRIu64 "\n", worker->ft.active_flows);
+  fprintf(fp, "Created flows:  %" PRIu64 "\n", worker->ft.created_flows);
+  fprintf(fp, "Deleted flows:  %" PRIu64 "\n", worker->ft.deleted_flows);
+  fprintf(fp, "Timeout flows:  %" PRIu64 "\n", worker->ft.timeout_flows);
+  fprintf(fp, "Lookup hits:    %" PRIu64 "\n", worker->ft.lookup_hits);
+  fprintf(fp, "Lookup misses:  %" PRIu64 "\n", worker->ft.lookup_misses);
+  spi_engine_stats_print(fp, &worker->spi);
+  fprintf(fp, "=================================\n");
+  fprintf(fp, "\n\n");
 }

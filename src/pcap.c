@@ -72,6 +72,14 @@ void pcap_init(uint16_t port_id, struct rte_mempool* mbuf_pool) {
 //   return hash_result % num_worker;
 // }
 
+// rx infinite ON only helps preallocating mbuf into normal RAM area (to reduce IO cost), 
+// not the hugepages area
+// ----- 3 steps of "rte_eth_rx_burst" -----
+// 1. ask for avail mbuf in mempool
+// 2. memcopy() to copy mbuf data from normal RAM to hugepage (takes really long time)
+// 3. return the pointer to pkts
+// in reality with NIC hardware, DMA does all the work, write directly to hugepages area
+// => no memcopy needed
 void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct worker_arg workers[], unsigned int num_workers, volatile sig_atomic_t* stop) {
   (void)mbuf_pool;
 
