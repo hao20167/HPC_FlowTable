@@ -46,18 +46,6 @@ struct flow_entry* flow_table_lookup_or_create(
   struct flow_key* key,
   uint64_t now
 ) {
-  void* found = NULL;
-  int ret = rte_hash_lookup_data(ft->hash, key, &found);
-  if (ret >= 0) {
-    struct flow_entry* entry = found;
-    entry->packets++;
-    entry->last_seen = now;
-    ft->lookup_hits++;
-    return entry;
-  }
-
-  ft->lookup_misses++;
-
   if (ft->used >= ft->capacity) return NULL;
   struct flow_entry* entry = &ft->entries[ft->used];
 
@@ -65,9 +53,8 @@ struct flow_entry* flow_table_lookup_or_create(
   entry->in_use = 1;
   entry->create_time = now;
   entry->last_seen = now;
-  entry->packets = 1;
 
-  ret = rte_hash_add_key_data(ft->hash, key, entry);
+  int ret = rte_hash_add_key_data(ft->hash, key, entry);
   if (ret < 0) return NULL;
   // TODO: clear above failed entry?
 

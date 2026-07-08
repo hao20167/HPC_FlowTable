@@ -51,7 +51,6 @@ int worker_main(void* arg) {
       struct flow_entry* entry;
       if (hit_mask >> i & 1) {
         entry = entries[i];
-        entry->packets++;
         entry->last_seen = now;
         worker->ft.lookup_hits++;
       } else entry = flow_table_lookup_or_create( &worker->ft, &ctx->key, now);
