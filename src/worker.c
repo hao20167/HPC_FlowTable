@@ -13,14 +13,35 @@
 #include <rte_ring.h>
 #include <rte_mbuf.h>
 
+static inline int worker_in_rings_empty(struct worker_arg* worker) {
+  for (unsigned int d = 0; d < worker->num_dispatchers; d++) {
+    if (!rte_ring_empty(worker->in_rings[d])) return 0;
+  }
+  return 1;
+}
+
 int worker_main(void* arg) {
   struct worker_arg* worker = arg;
   struct rte_mbuf* pkts[WORKER_RING_BURST_SIZE];
   uint64_t last_age = 0, timeout_cycles = rte_get_tsc_hz() * WORKER_FLOW_TIME_LIMIT_SECONDS;
   uint64_t processed = 0;
+  unsigned int start_ring = 0;
 
-  while (!*(worker->stop) || !rte_ring_empty(worker->ring)) {
-    unsigned int n = rte_ring_dequeue_burst(worker->ring, (void**)pkts, WORKER_RING_BURST_SIZE, NULL);
+  printf("Worker %u running on lcore %u, monitoring %u SPSC incoming rings\n",
+         worker->worker_id, rte_lcore_id(), worker->num_dispatchers);
+
+  while (!*(worker->stop) || !worker_in_rings_empty(worker)) {
+    unsigned int n = 0;
+    // Round-robin dequeue across incoming rings from each dispatcher
+    for (unsigned int d = 0; d < worker->num_dispatchers; d++) {
+      unsigned int ring_idx = (start_ring + d) % worker->num_dispatchers;
+      n = rte_ring_dequeue_burst(worker->in_rings[ring_idx], (void**)pkts, WORKER_RING_BURST_SIZE, NULL);
+      if (n > 0) {
+        start_ring = (ring_idx + 1) % worker->num_dispatchers;
+        break;
+      }
+    }
+
     if (n == 0) {
       rte_pause(); 
       continue;
@@ -98,50 +119,37 @@ int worker_main(void* arg) {
   return 0;
 }
 
-void worker_ring_init(struct rte_ring** ring, unsigned int num_workers) {
+void crossbar_rings_init(struct rte_ring* rings[NUM_DISPATCHERS][MAX_WORKERS], unsigned int num_dispatchers, unsigned int num_workers) {
   char ring_name[32];
-  snprintf(ring_name, 32, "worker_ring_%u", num_workers);
-  *ring = rte_ring_create(
-    ring_name,
-    WORKER_RING_SIZE,
-    rte_socket_id(),
-    RING_F_SP_ENQ | RING_F_SC_DEQ
-  );
-  if (*ring == NULL) {
-    rte_exit(EXIT_FAILURE, "Failed to create %s", ring_name);
+  for (unsigned int d = 0; d < num_dispatchers; d++) {
+    for (unsigned int w = 0; w < num_workers; w++) {
+      snprintf(ring_name, sizeof(ring_name), "ring_d%u_w%u", d, w);
+      rings[d][w] = rte_ring_create(
+        ring_name,
+        WORKER_RING_SIZE,
+        rte_socket_id(),
+        RING_F_SP_ENQ | RING_F_SC_DEQ
+      );
+      if (rings[d][w] == NULL) {
+        rte_exit(EXIT_FAILURE, "Failed to create SPSC ring %s\n", ring_name);
+      }
+    }
   }
 }
 
-unsigned int workers_init(struct worker_arg workers[], struct spi_engine* spi, volatile sig_atomic_t *stop) {
-  unsigned int lcore_id, num_workers = 0;
-  RTE_LCORE_FOREACH_WORKER(lcore_id) {
-    if (num_workers >= MAX_WORKERS) break;
-
-    // initialize worker_arg
-    workers[num_workers].worker_id = num_workers;
-    memset(&workers[num_workers].ft, 0, sizeof(struct flow_table));
-    flow_table_init(&workers[num_workers].ft, WORKER_FLOW_TABLE_CAP, num_workers);
-    worker_ring_init(&workers[num_workers].ring, num_workers);
-    memcpy(&workers[num_workers].spi, spi, sizeof(struct spi_engine));
-    workers[num_workers].stop = stop;
-    memset(&workers[num_workers].stats, 0, sizeof(struct worker_stats));
-
-    // send message to worker lcore to wake it up (WAIT (from init) -> RUNNING)
-    if (rte_eal_remote_launch(worker_main, &workers[num_workers], lcore_id) < 0) {
-      rte_exit(EXIT_FAILURE, "Failed to rte_eal_remote_launch [lcore_id=%u]\n", lcore_id);
+void workers_init(struct worker_arg workers[], unsigned int num_workers, struct rte_ring* rings[NUM_DISPATCHERS][MAX_WORKERS], unsigned int num_dispatchers, struct spi_engine* spi, volatile sig_atomic_t *stop) {
+  for (unsigned int w = 0; w < num_workers; w++) {
+    workers[w].worker_id = w;
+    memset(&workers[w].ft, 0, sizeof(struct flow_table));
+    flow_table_init(&workers[w].ft, WORKER_FLOW_TABLE_CAP, w);
+    workers[w].num_dispatchers = num_dispatchers;
+    for (unsigned int d = 0; d < num_dispatchers; d++) {
+      workers[w].in_rings[d] = rings[d][w];
     }
-
-    num_workers++;
+    memcpy(&workers[w].spi, spi, sizeof(struct spi_engine));
+    workers[w].stop = stop;
+    memset(&workers[w].stats, 0, sizeof(struct worker_stats));
   }
-
-  if (num_workers == 0) {
-    rte_exit(EXIT_FAILURE, "Failed to run, need at least 1 worker lcore\n");
-  }
-
-  printf("Dispatcher running on lcore: %u\n", rte_lcore_id());
-  printf("Workers: %u\n", num_workers);
-
-  return num_workers;
 }
 
 void worker_stats_count(struct worker_arg* worker, traffic_type type, uint32_t bytes) {

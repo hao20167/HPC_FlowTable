@@ -12,5 +12,6 @@ clean:
 	rm -rf $(TARGET)
 
 run: clean all
-	sudo ./$(TARGET) -l 0-4 --vdev 'net_pcap0,rx_pcap=tests/pcap/smallFlows.pcap,infinite_rx=1' --no-pci
-	# sudo ./$(TARGET) -l 0-4 --vdev 'net_pcap0,rx_pcap=/dev/shm/smallFlows.pcap,infinite_rx=1' --no-pci
+	# sudo ./$(TARGET) -l 0-7 --vdev 'net_pcap0,rx_pcap=tests/pcap/test.pcap,rx_pcap=tests/pcap/test.pcap,rx_pcap=tests/pcap/test.pcap,rx_pcap=tests/pcap/test.pcap,infinite_rx=1' --no-pci
+	sudo ./$(TARGET) -l 0-7 --vdev 'net_pcap0,rx_pcap=tests/pcap/smallFlows.pcap,rx_pcap=tests/pcap/smallFlows.pcap,rx_pcap=tests/pcap/smallFlows.pcap,rx_pcap=tests/pcap/smallFlows.pcap,infinite_rx=1' --no-pci
+	# sudo ./$(TARGET) -l 0-7 --vdev 'net_pcap0,rx_pcap=/dev/shm/smallFlows.pcap,rx_pcap=/dev/shm/smallFlows.pcap,rx_pcap=/dev/shm/smallFlows.pcap,rx_pcap=/dev/shm/smallFlows.pcap,infinite_rx=1' --no-pci

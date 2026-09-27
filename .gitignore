@@ -3,6 +3,7 @@
 /tests/
 .codegraph/
 /docs/
+docs2/
 
 .DS_Store
 compile_commands.json
