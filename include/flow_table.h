@@ -22,7 +22,6 @@ struct flow_entry {
   uint8_t in_use;
   uint64_t create_time;
   uint64_t last_seen;
-  uint64_t packets;
 };
 
 struct flow_table {

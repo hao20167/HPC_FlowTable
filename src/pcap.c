@@ -15,82 +15,55 @@
 #include <rte_mbuf_core.h>
 #include <rte_mempool.h>
 
-void pcap_init(uint16_t port_id, struct rte_mempool* mbuf_pool) {
+static int active_dispatchers = 0;
+
+void pcap_init(uint16_t port_id, struct rte_mempool* mbuf_pool, uint16_t num_rx_queues) {
+  active_dispatchers = (int)num_rx_queues;
   struct rte_eth_conf port_conf = {0};
 
-  int ret = rte_eth_dev_configure(port_id, 1, 1, &port_conf);
+  int ret = rte_eth_dev_configure(port_id, num_rx_queues, 1, &port_conf);
   if (ret < 0) {
     fprintf(stderr, "rte_eth_dev_configure failed: %d\n", ret);
     rte_exit(EXIT_FAILURE, "Pcap init failed\n");
   }
 
-  ret = rte_eth_rx_queue_setup(
-    port_id, 
-    0, 
-    RX_RING_SIZE, 
-    rte_eth_dev_socket_id(port_id),
-    NULL,
-    mbuf_pool
-  );
-  if (ret < 0) {
-    fprintf(stderr, "rte_eth_rx_queue_setup failed: %d\n", ret);
-    rte_exit(EXIT_FAILURE, "Pcap init failed\n");
+  for (uint16_t q = 0; q < num_rx_queues; q++) {
+    ret = rte_eth_rx_queue_setup(
+      port_id, 
+      q, 
+      RX_RING_SIZE, 
+      rte_eth_dev_socket_id(port_id),
+      NULL,
+      mbuf_pool
+    );
+    if (ret < 0) {
+      fprintf(stderr, "rte_eth_rx_queue_setup failed for queue %u: %d\n", q, ret);
+      rte_exit(EXIT_FAILURE, "Pcap init failed\n");
+    }
   }
 
-  // TODO:
-  // rte_eth_tx_queue_setup
-  // ...
-  
   ret = rte_eth_dev_start(port_id);
   if (ret < 0) {
     fprintf(stderr, "rte_eth_dev_start failed: %d\n", ret);
     rte_exit(EXIT_FAILURE, "Pcap init failed\n");
   }
 
-  printf("Port %u started\n", port_id);
+  printf("Port %u started with %u RX queues\n", port_id, num_rx_queues);
 }
 
-#include <rte_thash.h>
-
-/* Standard 40-byte Microsoft RSS Key used by most NICs by default */
-// static const uint8_t default_rss_key[40] = {
-//     0x6d, 0x5a, 0x56, 0xda, 0x25, 0x5b, 0x0e, 0xc2,
-//     0x41, 0x67, 0x25, 0x3d, 0x43, 0xa3, 0x8f, 0xb0,
-//     0xd0, 0xca, 0x2b, 0xcb, 0xae, 0x7b, 0x30, 0xb4,
-//     0x77, 0xcb, 0x2d, 0xa3, 0x80, 0x30, 0xf2, 0x0c,
-//     0x6a, 0x42, 0xb7, 0x3b, 0xbe, 0xac, 0x01, 0xfa
-// };
-
-// static unsigned int teoplitz_dispatch(struct flow_key* key, unsigned int num_worker) {
-//   union rte_thash_tuple tuple;
-//   tuple.v4.src_addr = key->src_ip;
-//   tuple.v4.dst_addr = key->dst_ip;
-//   tuple.v4.sport = key->src_port;
-//   tuple.v4.dport = key->dst_port;
-//   uint32_t tuple_len_32bit_words = RTE_THASH_V4_L4_LEN; 
-//   uint32_t hash_result = rte_softrss_be((uint32_t *)&tuple, tuple_len_32bit_words, default_rss_key);
-//   return hash_result % num_worker;
-// }
-
-// rx infinite ON only helps preallocating mbuf into normal RAM area (to reduce IO cost), 
-// not the hugepages area
-// ----- 3 steps of "rte_eth_rx_burst" -----
-// 1. ask for avail mbuf in mempool
-// 2. memcopy() to copy mbuf data from normal RAM to hugepage (takes really long time)
-// 3. return the pointer to pkts
-// in reality with NIC hardware, DMA does all the work, write directly to hugepages area
-// => no memcopy needed
-void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct worker_arg workers[], unsigned int num_workers, volatile sig_atomic_t* stop) {
-  (void)mbuf_pool;
-
+int dispatcher_main(void* arg) {
+  struct dispatcher_arg* disp = arg;
   struct rte_mbuf* pkts[RX_BURST_SIZE];
   uint32_t empty_polls = 0;
 
-  while (!*stop && empty_polls < RX_MAX_EMPTY_POLLS) {
-    // [1] burst get from RX
+  printf("Dispatcher %u running on lcore %u, polling RX queue %u\n",
+         disp->dispatcher_id, rte_lcore_id(), disp->queue_id);
+
+  while (!*disp->stop && empty_polls < RX_MAX_EMPTY_POLLS) {
+    // [1] burst get from assigned RX queue
     uint16_t n = rte_eth_rx_burst(
-      port_id,
-      0,
+      disp->port_id,
+      disp->queue_id,
       pkts,
       RX_BURST_SIZE
     );
@@ -111,15 +84,12 @@ void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct worker_
       parse_result ret = packet_to_flow_key(mbuf, &key);
       if (ret != PARSE_OK) {
         rte_pktmbuf_free(mbuf);
-        dropped++;
+        disp->stats.dropped++;
         continue;
       }
 
-      // [3] assign current flow to a specific worker
-      // unsigned int worker_id = teoplitz_dispatch(&key, num_workers);
-      // FIX: 1-way flow affinity
-      unsigned int worker_id = (key.src_ip ^ key.dst_ip ^ ((uint32_t)key.src_port << 16 | key.dst_port) ^ key.protocol) % num_workers;
-      // unsigned int worker_id = key.src_ip % num_workers;
+      // [3] assign current flow to a specific worker using 5-tuple hash
+      unsigned int worker_id = (key.src_ip ^ key.dst_ip ^ ((uint32_t)key.src_port << 16 | key.dst_port) ^ key.protocol) % disp->num_workers;
 
       // save traffic types and key to priv space in mbuf (metadata field)
       struct packet_ctx* ctx = packet_to_ctx(mbuf);
@@ -129,27 +99,33 @@ void pcap_replay(struct rte_mempool* mbuf_pool, uint16_t port_id, struct worker_
       worker_pkts[worker_id][worker_pkt_cnt[worker_id]++] = mbuf;
     }
 
-    // [4] pass the packets to worker
-    for (unsigned int i = 0; i < num_workers; i++) {
-      if (worker_pkt_cnt[i] > 0) {
+    // [4] pass the packets to each worker's dedicated SPSC ring for this dispatcher
+    for (unsigned int w = 0; w < disp->num_workers; w++) {
+      if (worker_pkt_cnt[w] > 0) {
         unsigned int sent = rte_ring_enqueue_burst(
-          workers[i].ring,
-          (void**)&worker_pkts[i][0],
-          worker_pkt_cnt[i],
+          disp->rings[w],
+          (void**)&worker_pkts[w][0],
+          worker_pkt_cnt[w],
           NULL
         );
-        if (sent < worker_pkt_cnt[i]) {
-          for (unsigned int j = sent; j < worker_pkt_cnt[i]; j++) {
-            rte_pktmbuf_free(worker_pkts[i][j]);
+        if (sent < worker_pkt_cnt[w]) {
+          for (unsigned int j = sent; j < worker_pkt_cnt[w]; j++) {
+            rte_pktmbuf_free(worker_pkts[w][j]);
           }
-          dropped += worker_pkt_cnt[i] - sent;
+          disp->stats.dropped += (worker_pkt_cnt[w] - sent);
         }
       }
     }
 
-    processed += n;
+    disp->stats.processed += n;
   }
 
-  *stop = 1;
+  if (__atomic_sub_fetch(&active_dispatchers, 1, __ATOMIC_SEQ_CST) == 0) {
+    *disp->stop = 1;
+  }
+  printf("Dispatcher %u (lcore %u) stopped, packets processed = %" PRIu64 ", dropped = %" PRIu64 "\n",
+         disp->dispatcher_id, rte_lcore_id(), disp->stats.processed, disp->stats.dropped);
+
+  return 0;
 }
 
